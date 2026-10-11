@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.angular/
+.npm-cache/
+out-tsc/
+.env*
+artifacts/
+public/config.json
