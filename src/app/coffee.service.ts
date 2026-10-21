@@ -82,6 +82,36 @@ export class CoffeeService {
       : this.rpc("coffee_state", { p_token: this.token });
   }
 
+  async checkRegistrationPassword(password: string): Promise<void> {
+    if (this.demo) this.demoStore.checkRegistrationPassword(password);
+    else
+      await this.rpc("coffee_check_registration_password", {
+        p_registration_password: password,
+      });
+  }
+
+  async register(
+    registrationPassword: string,
+    firstName: string,
+    lastName: string,
+    password: string,
+  ): Promise<void> {
+    if (this.demo)
+      await this.demoStore.register(
+        registrationPassword,
+        firstName,
+        lastName,
+        password,
+      );
+    else
+      await this.rpc("coffee_register", {
+        p_registration_password: registrationPassword,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_password: password,
+      });
+  }
+
   async saveOrder(meetingId: string, coffeeType: string): Promise<void> {
     if (this.demo) this.demoStore.saveOrder(this.token, meetingId, coffeeType);
     else
@@ -190,7 +220,10 @@ export class CoffeeService {
         data?.error ?? data?.message ?? "Nie udało się wykonać operacji.";
       if (data?.code === "PGRST202")
         throw new Error(
-          "Najpierw uruchom schema.sql w SQL Editor projektu Supabase.",
+          name === "coffee_register" ||
+            name === "coffee_check_registration_password"
+            ? "Uruchom migrację 20261021_registration.sql w SQL Editor projektu Supabase."
+            : "Najpierw uruchom schema.sql w SQL Editor projektu Supabase.",
         );
       throw new Error(message);
     }

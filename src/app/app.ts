@@ -20,6 +20,7 @@ export class App implements OnInit {
   readonly error = signal("");
   readonly notice = signal("");
   readonly view = signal<"order" | "admin">("order");
+  readonly authView = signal<"login" | "invitation" | "register">("login");
   readonly meetingId = signal("");
   readonly selectedCoffee = signal("");
   readonly meeting = computed(() =>
@@ -47,6 +48,11 @@ export class App implements OnInit {
   firstName = "";
   lastName = "";
   password = "";
+  registrationPassword = "";
+  registrationFirstName = "";
+  registrationLastName = "";
+  registrationAccountPassword = "";
+  registrationPasswordConfirmation = "";
   meetingName = "";
   meetingDate = "";
   newFirstName = "";
@@ -120,7 +126,77 @@ export class App implements OnInit {
         ),
       );
       this.password = "";
+      this.clearRegistration();
       this.view.set("order");
+    });
+  }
+
+  private clearRegistration(): void {
+    this.registrationPassword = "";
+    this.registrationFirstName = "";
+    this.registrationLastName = "";
+    this.registrationAccountPassword = "";
+    this.registrationPasswordConfirmation = "";
+    this.authView.set("login");
+  }
+
+  openRegistration(): void {
+    this.clearRegistration();
+    this.password = "";
+    this.error.set("");
+    this.notice.set("");
+    this.authView.set("invitation");
+  }
+
+  backToLogin(): void {
+    this.clearRegistration();
+    this.error.set("");
+    this.notice.set("");
+  }
+
+  async unlockRegistration(): Promise<void> {
+    await this.run(async () => {
+      try {
+        await this.api.checkRegistrationPassword(this.registrationPassword);
+        this.authView.set("register");
+      } catch (error) {
+        this.registrationPassword = "";
+        throw error;
+      }
+    });
+  }
+
+  async register(): Promise<void> {
+    await this.run(async () => {
+      if (
+        this.registrationAccountPassword !==
+        this.registrationPasswordConfirmation
+      )
+        throw new Error("Podane hasła do konta muszą być takie same.");
+      try {
+        await this.api.register(
+          this.registrationPassword,
+          this.registrationFirstName.trim(),
+          this.registrationLastName.trim(),
+          this.registrationAccountPassword,
+        );
+      } catch (error) {
+        if (
+          this.message(error).includes("hasło rejestracji") ||
+          this.message(error).includes("Rejestracja jest teraz niedostępna")
+        ) {
+          this.registrationPassword = "";
+          this.registrationAccountPassword = "";
+          this.registrationPasswordConfirmation = "";
+          this.authView.set("invitation");
+        }
+        throw error;
+      }
+      this.firstName = this.registrationFirstName.trim();
+      this.lastName = this.registrationLastName.trim();
+      this.password = "";
+      this.clearRegistration();
+      this.notice.set("Konto zostało utworzone. Zaloguj się swoim hasłem.");
     });
   }
 

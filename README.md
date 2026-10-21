@@ -4,6 +4,10 @@ Statyczny frontend w Angularze. Działa na komputerze i telefonie, a po podłąc
 projektu Supabase komunikuje się bezpośrednio z jego API. Nie ma osobnej aplikacji
 backendowej, .NET ani własnego serwera.
 
+Repozytorium służy do publikowania frontendu na GitHub Pages. Katalog `supabase/`
+ze skryptami SQL oraz `public/config.json` są lokalne i wykluczone z Gita.
+Opisane poniżej pliki SQL nie są pobierane podczas klonowania repozytorium.
+
 ## Uruchomienie
 
 Wymagany Node.js zgodny z Angularem 22, np. 24.15 lub nowszy z linii 24.
@@ -32,6 +36,7 @@ danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim pra
 ## Co można sprawdzić
 
 - Logowanie imieniem, nazwiskiem i hasłem, bez maila, telefonu i osobnego loginu.
+- Samodzielna rejestracja po podaniu wspólnego hasła od admina.
 - Wybór spotkania i jednej z czterech kaw.
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień po rozpoczęciu spotkania.
@@ -68,6 +73,47 @@ Publiczny klucz będzie dostępny w opublikowanej statycznej stronie; `.gitignor
 chroni przed zapisaniem go w repozytorium, nie ukrywa go w przeglądarce.
 **Nie używaj klucza secret ani
 service_role.** Dostęp do danych ograniczają funkcje SQL i uprawnienia w bazie.
+
+### Rejestracja na zaproszenie — aktualizacja istniejącego projektu
+
+1. W panelu projektu Supabase otwórz **Vault**. Jeśli rozszerzenie nie jest włączone,
+   w SQL Editor uruchom `create extension if not exists supabase_vault with schema vault;`.
+2. W Vault dodaj sekret o nazwie **`coffee_registration_password`**. Jego wartością
+   jest wybrane przez Ciebie wspólne hasło, które przekażesz znajomym. Użyj długiego,
+   trudnego do zgadnięcia hasła; maksymalna długość to 1024 bajty.
+   Wpisz je w interfejsie Vault, bez zapisywania w plikach projektu.
+3. W SQL Editor uruchom zawartość
+   **`supabase/migrations/20261021_registration.sql`**. Migrację można uruchomić
+   ponownie. Zachowuje istniejących użytkowników, spotkania i zamówienia.
+   **Na istniejącej bazie nie uruchamiaj ponownie `schema.sql`.** Nowy projekt
+   wymaga najpierw `schema.sql`, a następnie tej migracji.
+4. Opublikuj frontend zwykłym pushem do `main`. **Nie dodawaj hasła rejestracji do
+   sekretów GitHub Actions, `public/config.json` ani environment.ts.** Hasło jest
+   sprawdzane w Supabase, więc konfiguracja workflow pozostaje bez zmian.
+
+Na ekranie logowania wybierz „Nie masz konta? Zarejestruj się”. Poprawne hasło
+rejestracji odsłania formularz imienia, nazwiska i własnego hasła do konta.
+Po utworzeniu konta użytkownik wraca do logowania z uzupełnionym imieniem i nazwiskiem.
+Nowe konto ma uprawnienia zwykłego uczestnika. Para imię + nazwisko jest unikalna
+także między kontami utworzonymi przez admina i samodzielnie. Wielkość liter oraz
+spacje na początku i końcu są pomijane. Indeks unikalny chroni również przed
+równoczesnymi próbami utworzenia tej samej osoby.
+
+Baza sprawdza wspólne hasło zarówno przy otwieraniu formularza, jak i przy każdym
+wywołaniu `coffee_register`. Wpisane hasło pozostaje tylko w pamięci bieżącego
+formularza, nigdy w localStorage. API nie udostępnia sekretu ani jego hasha.
+Zmiana wartości sekretu w Vault działa od razu, także dla już otwartych formularzy,
+bez przebudowy strony. Usunięcie sekretu lub wyczyszczenie jego wartości zamyka
+samodzielną rejestrację. Logowanie i tworzenie kont przez admina nadal działają.
+
+Wspólne hasło ogranicza rejestrację do osób, które je znają. Osoba posiadająca
+hasło nadal może tworzyć wiele różnych kont; nie jest to limit liczby rejestracji
+ani zabezpieczenie przed przeciążaniem publicznego API.
+
+W trybie demo publiczne hasło rejestracji to **`SyloeDemo!`**. Służy tylko do
+sprawdzenia interfejsu; nie jest hasłem używanym w Supabase.
+
+Dokumentacja Vault: https://supabase.com/docs/guides/database/vault.
 
 ### Tabele i API
 
@@ -130,7 +176,12 @@ npm run build:pages
 
 Testy wykonują właściwy skrypt SQL na lokalnym PostgreSQL w WebAssembly (PGlite)
 oraz sprawdzają tryb demo i przeliczanie czasu. Nie wymagają konta Supabase ani
-działającego serwera. Nie zastępują sprawdzenia integracji z API prawdziwego projektu.
+działającego serwera. Test rejestracji wykonuje migrację SQL i sprawdza uprawnienia,
+unikalność, wymaganie wspólnego hasła i jego zmianę. Interfejs SQL Vault jest w nim
+odwzorowany lokalnie, bez rozszerzenia szyfrującego Supabase. Testy nie zastępują
+sprawdzenia integracji z API prawdziwego projektu. Gdy lokalnych plików `supabase/`
+nie ma (np. w GitHub Actions), testy SQL są jawnie pomijane; pozostałe testy nadal
+się wykonują. Publikowanie frontendu nie wymaga dostępu do skryptów ani danych bazy.
 
 ## Gdzie szukać kodu
 
@@ -140,6 +191,7 @@ działającego serwera. Nie zastępują sprawdzenia integracji z API prawdziwego
 - `src/app/models.ts`: modele i lista kaw.
 - `src/styles.css`: responsywny wygląd.
 - `supabase/schema.sql`: tabele, uprawnienia i funkcje API.
+- `supabase/migrations/20261021_registration.sql`: rejestracja i weryfikacja sekretu Vault.
 
 Frontend ma jeden główny komponent standalone, zwykłe formularze `ngModel` i sygnały
 Angulara. Nie ma dodatkowej biblioteki UI, routera ani osobnego systemu zarządzania stanem.

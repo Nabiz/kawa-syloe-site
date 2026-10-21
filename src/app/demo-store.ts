@@ -218,6 +218,30 @@ export class DemoStore {
   ): Promise<void> {
     const data = this.read();
     this.current(data, token, true);
+    await this.addUser(firstName, lastName, password);
+  }
+
+  checkRegistrationPassword(password: string): void {
+    // Public demo value only. Production checks the secret exclusively in SQL.
+    if (password !== "SyloeDemo!")
+      throw new Error("Nieprawidłowe hasło rejestracji.");
+  }
+
+  async register(
+    registrationPassword: string,
+    firstName: string,
+    lastName: string,
+    password: string,
+  ): Promise<void> {
+    this.checkRegistrationPassword(registrationPassword);
+    await this.addUser(firstName, lastName, password);
+  }
+
+  private async addUser(
+    firstName: string,
+    lastName: string,
+    password: string,
+  ): Promise<void> {
     if (
       !firstName.trim() ||
       !lastName.trim() ||
@@ -225,6 +249,14 @@ export class DemoStore {
       lastName.trim().length > 80
     )
       throw new Error("Podaj imię i nazwisko (do 80 znaków).");
+    if (password.length < 8 || new TextEncoder().encode(password).length > 72)
+      throw new Error(
+        "Hasło musi mieć co najmniej 8 znaków i maksymalnie 72 bajty.",
+      );
+    const salt = crypto.randomUUID();
+    const hash = await passwordHash(password, salt);
+    // Read again after hashing so overlapping registrations do not lose updates.
+    const data = this.read();
     if (
       data.users.some(
         (u) =>
@@ -233,12 +265,6 @@ export class DemoStore {
       )
     )
       throw new Error("Osoba o tym imieniu i nazwisku już istnieje.");
-    if (password.length < 8 || new TextEncoder().encode(password).length > 72)
-      throw new Error(
-        "Hasło musi mieć co najmniej 8 znaków i maksymalnie 72 bajty.",
-      );
-    const salt = crypto.randomUUID();
-    const hash = await passwordHash(password, salt);
     data.users.push({
       id: crypto.randomUUID(),
       firstName: firstName.trim(),

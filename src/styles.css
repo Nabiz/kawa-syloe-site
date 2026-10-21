@@ -173,6 +173,10 @@ h2 {
 .login-card form {
   margin-top: 27px;
 }
+.auth-switch {
+  display: block;
+  margin: 18px auto 0;
+}
 form {
   display: flex;
   flex-direction: column;

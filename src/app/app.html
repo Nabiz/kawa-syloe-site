@@ -65,6 +65,81 @@
       <p class="small-story">Jeden prosty wybór. Więcej czasu razem.</p>
     </div>
     <div class="login-card card">
+      @if (authView() === 'invitation') {
+      <span class="card-kicker">DOŁĄCZ DO NAS</span>
+      <h2>Masz zaproszenie?</h2>
+      <p class="muted">Podaj wspólne hasło rejestracji otrzymane od admina.</p>
+      <form (ngSubmit)="unlockRegistration()">
+        <label>Hasło rejestracji<input
+          name="registrationPassword"
+          [(ngModel)]="registrationPassword"
+          type="password"
+          autocomplete="off"
+          required
+          maxlength="1024"
+          [disabled]="busy() || !ready()"
+        /></label>
+        <button class="primary full" type="submit" [disabled]="busy() || !ready()">
+          {{ busy() ? 'Sprawdzanie…' : 'Przejdź do rejestracji' }}
+        </button>
+      </form>
+      @if (api.demo) {
+      <p class="help">Hasło rejestracji w demo: <strong>SyloeDemo!</strong></p>
+      }
+      <button class="text-button auth-switch" type="button" (click)="backToLogin()" [disabled]="busy()">
+        Wróć do logowania
+      </button>
+      } @else if (authView() === 'register') {
+      <span class="card-kicker">DOŁĄCZ DO NAS</span>
+      <h2>Utwórz konto</h2>
+      <p class="muted">Podaj swoje imię i nazwisko oraz wybierz hasło do konta.</p>
+      <form (ngSubmit)="register()">
+        <div class="two-fields">
+          <label>Imię<input
+            name="registrationFirstName"
+            [(ngModel)]="registrationFirstName"
+            autocomplete="given-name"
+            required
+            maxlength="80"
+            [disabled]="busy()"
+          /></label>
+          <label>Nazwisko<input
+            name="registrationLastName"
+            [(ngModel)]="registrationLastName"
+            autocomplete="family-name"
+            required
+            maxlength="80"
+            [disabled]="busy()"
+          /></label>
+        </div>
+        <label>Hasło do konta<input
+          name="registrationAccountPassword"
+          [(ngModel)]="registrationAccountPassword"
+          type="password"
+          autocomplete="new-password"
+          required
+          minlength="8"
+          maxlength="72"
+          [disabled]="busy()"
+        /><small>Co najmniej 8 znaków.</small></label>
+        <label>Powtórz hasło do konta<input
+          name="registrationPasswordConfirmation"
+          [(ngModel)]="registrationPasswordConfirmation"
+          type="password"
+          autocomplete="new-password"
+          required
+          minlength="8"
+          maxlength="72"
+          [disabled]="busy()"
+        /></label>
+        <button class="primary full" type="submit" [disabled]="busy()">
+          {{ busy() ? 'Tworzenie konta…' : 'Utwórz konto' }}
+        </button>
+      </form>
+      <button class="text-button auth-switch" type="button" (click)="backToLogin()" [disabled]="busy()">
+        Wróć do logowania
+      </button>
+      } @else {
       <span class="card-kicker">MIŁO CIĘ WIDZIEĆ</span>
       <h2>Zaloguj się</h2>
       <p class="muted">Użyj swojego imienia, nazwiska i hasła.</p>
@@ -110,6 +185,9 @@
         </button>
       </form>
       <p class="help">Nie pamiętasz hasła? Poproś admina o reset.</p>
+      <button class="text-button auth-switch" type="button" (click)="openRegistration()" [disabled]="busy() || !ready()">
+        Nie masz konta? Zarejestruj się
+      </button>
       @if (api.demo && ready()) {
       <div class="demo-accounts">
         <p>WYPRÓBUJ BEZ WPISYWANIA</p>
@@ -130,6 +208,7 @@
         </div>
         <small>Hasło kont demonstracyjnych: Kawa123!</small>
       </div>
+      }
       }
     </div>
   </section>

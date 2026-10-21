@@ -6,3 +6,4 @@ out-tsc/
 .env*
 artifacts/
 public/config.json
+supabase/
