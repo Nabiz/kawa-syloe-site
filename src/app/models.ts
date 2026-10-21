@@ -1,13 +1,37 @@
-export const COFFEES = [
+export interface CoffeeType {
+  name: string;
+  detail: string;
+  attendanceOnly: boolean;
+  active: boolean;
+}
+
+// Used only by the local demo. The live catalogue comes from Supabase.
+export const DEFAULT_COFFEE_TYPES: CoffeeType[] = [
   {
-    name: "Cappuccino",
-    detail: "Espresso, mleko i puszysta pianka",
-    mark: "☁",
+    name: "Czarna",
+    detail: "Kawa bez mleka",
+    attendanceOnly: false,
+    active: true,
   },
-  { name: "Latte", detail: "Dużo mleka, łagodny smak", mark: "◒" },
-  { name: "Americano", detail: "Czarna kawa, więcej do wypicia", mark: "◉" },
-  { name: "Espresso", detail: "Mała, mocna, klasyczna", mark: "●" },
-] as const;
+  {
+    name: "Biała",
+    detail: "Kawa z mlekiem",
+    attendanceOnly: false,
+    active: true,
+  },
+  {
+    name: "Herbata Zimowa",
+    detail: "Rozgrzewająca herbata",
+    attendanceOnly: false,
+    active: true,
+  },
+  {
+    name: "Inna (daj znać po spotkaniu)",
+    detail: "Będę na spotkaniu, bez zamawiania napoju",
+    attendanceOnly: true,
+    active: true,
+  },
+];
 
 export interface User {
   id: string;
@@ -19,6 +43,7 @@ export interface Meeting {
   id: string;
   name: string;
   startsAt: string;
+  coffeeTypes: string[];
 }
 export interface Order {
   id: string;
@@ -27,6 +52,7 @@ export interface Order {
   meetingId: string;
 }
 export interface State {
+  coffeeTypes: CoffeeType[];
   user: User;
   meetings: Meeting[];
   orders: Order[];

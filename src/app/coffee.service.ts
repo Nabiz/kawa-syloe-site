@@ -131,13 +131,19 @@ export class CoffeeService {
       });
   }
 
-  async createMeeting(name: string, startsAt: string): Promise<void> {
-    if (this.demo) this.demoStore.createMeeting(this.token, name, startsAt);
+  async createMeeting(
+    name: string,
+    startsAt: string,
+    coffeeTypes: string[],
+  ): Promise<void> {
+    if (this.demo)
+      this.demoStore.createMeeting(this.token, name, startsAt, coffeeTypes);
     else
       await this.rpc("coffee_create_meeting", {
         p_token: this.token,
         p_name: name,
         p_starts_at: startsAt,
+        p_coffee_types: coffeeTypes,
       });
   }
 
@@ -220,10 +226,12 @@ export class CoffeeService {
         data?.error ?? data?.message ?? "Nie udało się wykonać operacji.";
       if (data?.code === "PGRST202")
         throw new Error(
-          name === "coffee_register" ||
-            name === "coffee_check_registration_password"
-            ? "Uruchom migrację 20261021_registration.sql w SQL Editor projektu Supabase."
-            : "Najpierw uruchom schema.sql w SQL Editor projektu Supabase.",
+          name === "coffee_create_meeting"
+            ? "Uruchom migrację 20261021_coffee_types.sql w SQL Editor Supabase."
+            : name === "coffee_register" ||
+                name === "coffee_check_registration_password"
+              ? "Uruchom migrację 20261021_registration.sql w SQL Editor projektu Supabase."
+              : "Najpierw uruchom schema.sql w SQL Editor projektu Supabase.",
         );
       throw new Error(message);
     }

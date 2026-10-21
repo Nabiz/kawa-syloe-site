@@ -1,9 +1,17 @@
-import { COFFEES } from "./models";
-import type { Meeting, Order, Session, State, User } from "./models";
+import { DEFAULT_COFFEE_TYPES } from "./models";
+import type {
+  CoffeeType,
+  Meeting,
+  Order,
+  Session,
+  State,
+  User,
+} from "./models";
 
 type DemoUser = User & { hash: string; salt: string };
 type DemoSession = { token: string; userId: string; expiresAt: number };
 type DemoData = {
+  coffeeTypes: CoffeeType[];
   users: DemoUser[];
   meetings: Meeting[];
   orders: Order[];
@@ -58,7 +66,32 @@ export class DemoStore {
   ) {}
 
   async init(): Promise<void> {
-    if (this.storage.getItem(KEY)) return;
+    if (this.storage.getItem(KEY)) {
+      const data = this.read();
+      if (!data.coffeeTypes) {
+        data.coffeeTypes = DEFAULT_COFFEE_TYPES.map((c) => ({ ...c }));
+        for (const name of new Set(data.orders.map((o) => o.coffeeType))) {
+          if (!data.coffeeTypes.some((c) => c.name === name))
+            data.coffeeTypes.push({
+              name,
+              detail: "Wcześniejsze zamówienie",
+              attendanceOnly: false,
+              active: false,
+            });
+        }
+        for (const meeting of data.meetings)
+          meeting.coffeeTypes = [
+            ...new Set([
+              ...DEFAULT_COFFEE_TYPES.map((c) => c.name),
+              ...data.orders
+                .filter((o) => o.meetingId === meeting.id)
+                .map((o) => o.coffeeType),
+            ]),
+          ];
+        this.write(data);
+      }
+      return;
+    }
     const users: DemoUser[] = [];
     for (const [firstName, lastName, isAdmin] of [
       ["Jan", "Kowalski", true],
@@ -82,20 +115,22 @@ export class DemoStore {
       id: crypto.randomUUID(),
       name: "Niedzielna kawa w Syloe",
       startsAt: day.toISOString(),
+      coffeeTypes: DEFAULT_COFFEE_TYPES.map((c) => c.name),
     };
     this.write({
+      coffeeTypes: DEFAULT_COFFEE_TYPES.map((c) => ({ ...c })),
       users,
       meetings: [meeting],
       orders: [
         {
           id: crypto.randomUUID(),
-          coffeeType: "Cappuccino",
+          coffeeType: "Czarna",
           userId: users[0].id,
           meetingId: meeting.id,
         },
         {
           id: crypto.randomUUID(),
-          coffeeType: "Latte",
+          coffeeType: "Biała",
           userId: users[1].id,
           meetingId: meeting.id,
         },
@@ -149,6 +184,7 @@ export class DemoStore {
     const data = this.read();
     const user = this.current(data, token);
     return {
+      coffeeTypes: data.coffeeTypes.map((c) => ({ ...c })),
       user: publicUser(user),
       meetings: [...data.meetings].sort((a, b) =>
         a.startsAt.localeCompare(b.startsAt),
@@ -164,8 +200,8 @@ export class DemoStore {
     const meeting = data.meetings.find((m) => m.id === meetingId);
     if (!meeting || new Date(meeting.startsAt).getTime() <= this.now())
       throw new Error("Zamówienia na to spotkanie są zamknięte.");
-    if (!COFFEES.some((c) => c.name === coffeeType))
-      throw new Error("Wybierz kawę z listy.");
+    if (!meeting.coffeeTypes.includes(coffeeType))
+      throw new Error("Wybierz napój dostępny na tym spotkaniu z listy.");
     const previous = data.orders.find(
       (o) => o.meetingId === meetingId && o.userId === user.id,
     );
@@ -192,7 +228,12 @@ export class DemoStore {
     this.write(data);
   }
 
-  createMeeting(token: string, name: string, startsAt: string): void {
+  createMeeting(
+    token: string,
+    name: string,
+    startsAt: string,
+    coffeeTypes: string[],
+  ): void {
     const data = this.read();
     this.current(data, token, true);
     if (
@@ -202,10 +243,25 @@ export class DemoStore {
       Date.parse(startsAt) <= this.now()
     )
       throw new Error("Podaj nazwę i przyszłą datę spotkania.");
+    if (
+      !Array.isArray(coffeeTypes) ||
+      coffeeTypes.some(
+        (name) => !data.coffeeTypes.some((c) => c.name === name && c.active),
+      )
+    )
+      throw new Error("Wybierz napoje z listy.");
     data.meetings.push({
       id: crypto.randomUUID(),
       name: name.trim(),
       startsAt,
+      coffeeTypes: [
+        ...new Set([
+          ...coffeeTypes,
+          ...data.coffeeTypes
+            .filter((c) => c.active && c.attendanceOnly)
+            .map((c) => c.name),
+        ]),
+      ],
     });
     this.write(data);
   }

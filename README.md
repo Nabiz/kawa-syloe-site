@@ -37,10 +37,11 @@ danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim pra
 
 - Logowanie imieniem, nazwiskiem i hasłem, bez maila, telefonu i osobnego loginu.
 - Samodzielna rejestracja po podaniu wspólnego hasła od admina.
-- Wybór spotkania i jednej z czterech kaw.
+- Wybór spotkania i napoju z menu ustalonego przez admina.
+- Zapis obecności bez napoju przez opcję „Inna (daj znać po spotkaniu)”.
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień po rozpoczęciu spotkania.
-- Panel admina: zamówienia wszystkich osób i liczba poszczególnych kaw.
+- Panel admina: zapisane osoby, liczba napojów oraz osoby bez napoju.
 - Tworzenie spotkań i kont oraz reset hasła innej osoby.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
 
@@ -115,14 +116,47 @@ sprawdzenia interfejsu; nie jest hasłem używanym w Supabase.
 
 Dokumentacja Vault: https://supabase.com/docs/guides/database/vault.
 
+### Katalog napojów i menu spotkania — aktualizacja bazy
+
+W SQL Editor Supabase uruchom lokalny plik
+**`supabase/migrations/20261021_coffee_types.sql`**, przed opublikowaniem nowego
+frontendu. Na nowej bazie najpierw uruchom `schema.sql`; migracja rejestracji jest
+niezależna i również pozostaje potrzebna do rejestracji użytkowników.
+Nie uruchamiaj ponownie `schema.sql` na istniejącej bazie.
+
+Migracja dodaje katalog `coffee_types` z czterema pozycjami:
+**Czarna**, **Biała**, **Herbata Zimowa**, **Inna (daj znać po spotkaniu)**.
+Admin zaznacza dostępne napoje podczas tworzenia spotkania. Uczestnik widzi tylko
+menu tego spotkania. Baza weryfikuje dostępność także przy bezpośrednim wywołaniu API.
+Opcja „Inna…” oznacza obecność bez zamawiania napoju i jest zawsze dostępna.
+Admin może odznaczyć wszystkie napoje i utworzyć spotkanie z samymi zapisami obecności.
+
+Zapis „Inna…” jest jednym wierszem w `coffee_orders`, oznaczonym przez powiązany
+typ `attendance_only = true`. Jest wliczany do liczby osób, ale nie do liczby napojów.
+Zmiana wyboru nadpisuje ten sam zapis, anulowanie usuwa zapis i zmniejsza liczbę osób.
+Tak jak wcześniej, zmiany są możliwe tylko do rozpoczęcia spotkania.
+
+Dotychczasowe spotkania i zamówienia są zachowane z oryginalnymi nazwami napojów.
+Historyczne rodzaje są nieaktywne dla nowych menu, ale nadal widoczne przy
+wcześniejszych zamówieniach. Stare spotkania otrzymują cztery nowe opcje oraz typy
+wcześniej na nich zamówione. Ponowne uruchomienie migracji nie rozszerza menu nowych
+spotkań. Katalog i powiązania są udostępniane przez `coffee_state`, bez nowych
+requestów do API przy wyświetlaniu menu. Lokalne demo aktualizuje stare dane bez
+usuwania kont i zapisów.
+
+Katalog `supabase/` nadal jest ignorowany przez Git — migrację zachowaj lokalnie
+i wykonaj w SQL Editor, nie jest automatycznie wdrażana przez GitHub Actions.
+
 ### Tabele i API
 
-Trzy tabele biznesowe, widoczne w Table Editor:
+Tabele biznesowe, widoczne w Table Editor:
 
 - `coffee_users`: imię, nazwisko, hash hasła, oznaczenie admina. Para imię + nazwisko
   jest unikalna bez rozróżniania wielkości liter i skrajnych spacji.
 - `coffee_meetings`: nazwa, data i godzina rozpoczęcia.
-- `coffee_orders`: rodzaj kawy oraz relacje do użytkownika i spotkania.
+- `coffee_orders`: napój lub obecność bez napoju oraz relacje do użytkownika i spotkania.
+- `coffee_types`: katalog napojów i oznaczenie opcji bez napoju.
+- `coffee_meeting_types`: menu wybrane dla danego spotkania.
 
 W prywatnym schemacie `coffee_private` jest jedna techniczna tabela sesji.
 Hasła w Supabase są hashowane przez pgcrypto (bcrypt, koszt 10). Hash hasła nie

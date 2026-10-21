@@ -32,7 +32,7 @@
       <p class="eyebrow">NASZA SPOŁECZNOŚĆ · NASZA KAWA</p>
       <h1>Do zobaczenia.<br />Przy <em>kawie.</em></h1>
       <p class="lead">
-        Wybierz swoją kawę na kolejne spotkanie.<br />My zadbamy o resztę.
+        Wybierz napój na kolejne spotkanie.<br />My zadbamy o resztę.
       </p>
       <div class="coffee-art" aria-hidden="true">
         <svg viewBox="0 0 400 250">
@@ -70,73 +70,95 @@
       <h2>Masz zaproszenie?</h2>
       <p class="muted">Podaj wspólne hasło rejestracji otrzymane od admina.</p>
       <form (ngSubmit)="unlockRegistration()">
-        <label>Hasło rejestracji<input
-          name="registrationPassword"
-          [(ngModel)]="registrationPassword"
-          type="password"
-          autocomplete="off"
-          required
-          maxlength="1024"
-          [disabled]="busy() || !ready()"
+        <label
+          >Hasło rejestracji<input
+            name="registrationPassword"
+            [(ngModel)]="registrationPassword"
+            type="password"
+            autocomplete="off"
+            required
+            maxlength="1024"
+            [disabled]="busy() || !ready()"
         /></label>
-        <button class="primary full" type="submit" [disabled]="busy() || !ready()">
+        <button
+          class="primary full"
+          type="submit"
+          [disabled]="busy() || !ready()"
+        >
           {{ busy() ? 'Sprawdzanie…' : 'Przejdź do rejestracji' }}
         </button>
       </form>
       @if (api.demo) {
       <p class="help">Hasło rejestracji w demo: <strong>SyloeDemo!</strong></p>
       }
-      <button class="text-button auth-switch" type="button" (click)="backToLogin()" [disabled]="busy()">
+      <button
+        class="text-button auth-switch"
+        type="button"
+        (click)="backToLogin()"
+        [disabled]="busy()"
+      >
         Wróć do logowania
       </button>
       } @else if (authView() === 'register') {
       <span class="card-kicker">DOŁĄCZ DO NAS</span>
       <h2>Utwórz konto</h2>
-      <p class="muted">Podaj swoje imię i nazwisko oraz wybierz hasło do konta.</p>
+      <p class="muted">
+        Podaj swoje imię i nazwisko oraz wybierz hasło do konta.
+      </p>
       <form (ngSubmit)="register()">
         <div class="two-fields">
-          <label>Imię<input
-            name="registrationFirstName"
-            [(ngModel)]="registrationFirstName"
-            autocomplete="given-name"
-            required
-            maxlength="80"
-            [disabled]="busy()"
+          <label
+            >Imię<input
+              name="registrationFirstName"
+              [(ngModel)]="registrationFirstName"
+              autocomplete="given-name"
+              required
+              maxlength="80"
+              [disabled]="busy()"
           /></label>
-          <label>Nazwisko<input
-            name="registrationLastName"
-            [(ngModel)]="registrationLastName"
-            autocomplete="family-name"
-            required
-            maxlength="80"
-            [disabled]="busy()"
+          <label
+            >Nazwisko<input
+              name="registrationLastName"
+              [(ngModel)]="registrationLastName"
+              autocomplete="family-name"
+              required
+              maxlength="80"
+              [disabled]="busy()"
           /></label>
         </div>
-        <label>Hasło do konta<input
-          name="registrationAccountPassword"
-          [(ngModel)]="registrationAccountPassword"
-          type="password"
-          autocomplete="new-password"
-          required
-          minlength="8"
-          maxlength="72"
-          [disabled]="busy()"
-        /><small>Co najmniej 8 znaków.</small></label>
-        <label>Powtórz hasło do konta<input
-          name="registrationPasswordConfirmation"
-          [(ngModel)]="registrationPasswordConfirmation"
-          type="password"
-          autocomplete="new-password"
-          required
-          minlength="8"
-          maxlength="72"
-          [disabled]="busy()"
+        <label
+          >Hasło do konta<input
+            name="registrationAccountPassword"
+            [(ngModel)]="registrationAccountPassword"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="8"
+            maxlength="72"
+            [disabled]="busy()"
+          /><small>Co najmniej 8 znaków.</small></label
+        >
+        <label
+          >Powtórz hasło do konta<input
+            name="registrationPasswordConfirmation"
+            [(ngModel)]="registrationPasswordConfirmation"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="8"
+            maxlength="72"
+            [disabled]="busy()"
         /></label>
         <button class="primary full" type="submit" [disabled]="busy()">
           {{ busy() ? 'Tworzenie konta…' : 'Utwórz konto' }}
         </button>
       </form>
-      <button class="text-button auth-switch" type="button" (click)="backToLogin()" [disabled]="busy()">
+      <button
+        class="text-button auth-switch"
+        type="button"
+        (click)="backToLogin()"
+        [disabled]="busy()"
+      >
         Wróć do logowania
       </button>
       } @else {
@@ -185,7 +207,12 @@
         </button>
       </form>
       <p class="help">Nie pamiętasz hasła? Poproś admina o reset.</p>
-      <button class="text-button auth-switch" type="button" (click)="openRegistration()" [disabled]="busy() || !ready()">
+      <button
+        class="text-button auth-switch"
+        type="button"
+        (click)="openRegistration()"
+        [disabled]="busy() || !ready()"
+      >
         Nie masz konta? Zarejestruj się
       </button>
       @if (api.demo && ready()) {
@@ -208,8 +235,7 @@
         </div>
         <small>Hasło kont demonstracyjnych: Kawa123!</small>
       </div>
-      }
-      }
+      } }
     </div>
   </section>
   } @else { @if (data(); as state) {
@@ -219,7 +245,7 @@
       [class.active]="view() === 'order'"
       [attr.aria-current]="view() === 'order' ? 'page' : null"
     >
-      Moja kawa</button
+        Mój wybór</button
     >@if (state.user.isAdmin) {<button
       (click)="view.set('admin')"
       [class.active]="view() === 'admin'"
@@ -277,9 +303,9 @@
   </div>
   } @if (view() === 'order') { @if (meeting()) {
   <fieldset class="coffee-fieldset" [disabled]="busy() || isClosed(meeting())">
-    <legend>Twoja kawa</legend>
+    <legend>Twój napój lub obecność bez napoju</legend>
     <div class="coffee-grid">
-      @for (coffee of coffees; track coffee.name) {
+      @for (coffee of coffees(); track coffee.name) {
       <label
         class="coffee-card"
         [class.selected]="selectedCoffee() === coffee.name"
@@ -293,9 +319,23 @@
           >{{ selectedCoffee() === coffee.name ? '✓' : '' }}</span
         ><span
           class="cup-illustration"
-          [attr.data-coffee]="coffee.name"
+          [class.milky]="coffee.name === 'Biała'"
+          [class.tea]="coffee.name === 'Herbata Zimowa'"
+          [class.black]="coffee.name === 'Czarna'"
           aria-hidden="true"
-          ><svg viewBox="0 0 120 110">
+          >@if (coffee.attendanceOnly) {
+          <svg viewBox="0 0 120 110">
+            <circle cx="60" cy="28" r="17" fill="currentColor" />
+            <path d="M27 89c0-40 66-40 66 0" fill="currentColor" />
+            <path
+              d="m78 52 10 10 19-24"
+              fill="none"
+              stroke="#a6b779"
+              stroke-width="7"
+              stroke-linecap="round"
+            />
+          </svg>
+          } @else {<svg viewBox="0 0 120 110">
             <ellipse cx="55" cy="94" rx="45" ry="7" fill="#dfd9ca" />
             <path
               d="M83 35h10c23 0 23 34 0 34H83"
@@ -313,7 +353,8 @@
               stroke-width="2"
               stroke-linecap="round"
               transform="translate(0 10)"
-            /></svg></span
+            /></svg
+          >}</span
         ><strong>{{ coffee.name }}</strong
         ><span class="muted">{{ coffee.detail }}</span></label
       >
@@ -323,11 +364,11 @@
   <div class="order-footer">
     <div>
       @if (ownOrder(); as order) {<span class="card-kicker"
-        >TWOJE OBECNE ZAMÓWIENIE</span
+        >TWÓJ ZAPIS NA SPOTKANIE</span
       >
       <p class="current-order">✓ {{ order.coffeeType }}</p>
       } @else {
-      <p class="muted">Jedna kawa. Twój wybór.</p>
+      <p class="muted">Wybierz napój lub zaznacz obecność bez napoju.</p>
       }<small>Możesz zmieniać zamówienie do rozpoczęcia spotkania.</small>
     </div>
     <div class="order-actions">
@@ -336,24 +377,30 @@
         (click)="cancelOrder()"
         [disabled]="busy()"
       >
-        Anuluj zamówienie</button
+        Anuluj zapis</button
       >}<button
         class="primary"
         (click)="saveOrder()"
         [disabled]="busy() || !selectedCoffee() || isClosed(meeting())"
       >
-        {{ busy() ? 'Zapisywanie…' : ownOrder() ? 'Zapisz wybór' : 'Zamawiam
-        kawę' }} <span aria-hidden="true">→</span>
+        {{ busy() ? 'Zapisywanie…' : ownOrder() ? 'Zapisz wybór' : 'Zapisuję
+        się' }} <span aria-hidden="true">→</span>
       </button>
     </div>
   </div>
   } } @else { @if (meeting()) {
   <section class="card orders-card">
     <div class="section-title">
-      <h2>Zamówienia</h2>
-      <span class="pill">{{ meetingOrders().length }} kaw</span>
+      <h2>Zapisy na spotkanie</h2>
+      <span class="pill"
+        >Osoby: {{ meetingOrders().length }} · Napoje: {{ drinkCount() }}</span
+      >
     </div>
     <div class="totals">
+      <div>
+        <strong>{{ meetingOrders().length - drinkCount() }}</strong
+        ><span>Bez napoju</span>
+      </div>
       @for (total of totals(); track total.name) {
       <div><strong>{{ total.count }}</strong><span>{{ total.name }}</span></div>
       }
@@ -364,21 +411,24 @@
         <thead>
           <tr>
             <th>Osoba</th>
-            <th>Kawa</th>
+            <th>Napój / obecność</th>
           </tr>
         </thead>
         <tbody>
           @for (order of meetingOrders(); track order.id) {
           <tr>
             <td>{{ person(order.userId) }}</td>
-            <td>{{ order.coffeeType }}</td>
+            <td>
+              {{ isAttendanceOnly(order.coffeeType) ? 'Bez napoju · ' : '' }}{{
+              order.coffeeType }}
+            </td>
           </tr>
           }
         </tbody>
       </table>
     </div>
     } @else {
-    <p class="muted">Na to spotkanie nie ma jeszcze zamówień.</p>
+    <p class="muted">Na to spotkanie nie ma jeszcze zapisanych osób.</p>
     }
   </section>
   }
@@ -401,8 +451,25 @@
             [(ngModel)]="meetingDate"
             type="datetime-local"
             required
-            [disabled]="busy()" /></label
-        ><button class="primary" type="submit" [disabled]="busy()">
+            [disabled]="busy()"
+        /></label>
+        <fieldset class="offer-options" [disabled]="busy()">
+          <legend>Dostępne napoje</legend>
+          @for (coffee of offeredTypes(); track coffee.name) {
+          <label class="offer-option"
+            ><input
+              type="checkbox"
+              [name]="'offer-' + coffee.name"
+              [ngModel]="offeredCoffeeTypes.includes(coffee.name)"
+              (ngModelChange)="toggleCoffeeType(coffee.name, $event)"
+            />{{ coffee.name }}</label
+          >
+          }
+          <p class="muted">
+            {{ attendanceType()?.name }} — zawsze dostępna obecność bez napoju.
+          </p>
+        </fieldset>
+        <button class="primary" type="submit" [disabled]="busy()">
           Dodaj spotkanie
         </button>
       </form>

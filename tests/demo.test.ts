@@ -30,13 +30,14 @@ test("demo: order ownership, unique orders, admin access and password reset", as
         anna.token,
         "Forbidden",
         new Date(now + 86400000).toISOString(),
+        ["Czarna"],
       ),
     /admina/,
   );
-  store.saveOrder(anna.token, meeting.id, "Espresso");
-  store.saveOrder(anna.token, meeting.id, "Americano");
+  store.saveOrder(anna.token, meeting.id, "Czarna");
+  store.saveOrder(anna.token, meeting.id, "Biała");
   assert.equal(store.state(anna.token).orders.length, 1);
-  assert.equal(store.state(anna.token).orders[0].coffeeType, "Americano");
+  assert.equal(store.state(anna.token).orders[0].coffeeType, "Biała");
   assert.throws(
     () => store.saveOrder(anna.token, meeting.id, "Invalid"),
     /listy/,
@@ -62,7 +63,7 @@ test("demo: order ownership, unique orders, admin access and password reset", as
   const newAnna = await store.login("Anna", "Nowak", "NewPass123!");
   now = Date.parse(meeting.startsAt) + 1;
   assert.throws(
-    () => store.saveOrder(newAnna.token, meeting.id, "Latte"),
+    () => store.saveOrder(newAnna.token, meeting.id, "Herbata Zimowa"),
     /zamknięte/,
   );
   store.logout(jan.token);

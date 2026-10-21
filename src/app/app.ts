@@ -1,7 +1,7 @@
 import { Component, computed, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CoffeeService } from "./coffee.service";
-import { COFFEES, Meeting, State } from "./models";
+import { Meeting, State } from "./models";
 import { warsawDateTimeToIso } from "./time";
 
 @Component({
@@ -12,8 +12,21 @@ import { warsawDateTimeToIso } from "./time";
 })
 export class App implements OnInit {
   readonly api = inject(CoffeeService);
-  readonly coffees = COFFEES;
   readonly data = signal<State | null>(null);
+  readonly coffees = computed(
+    () =>
+      this.data()?.coffeeTypes.filter((c) =>
+        this.meeting()?.coffeeTypes.includes(c.name),
+      ) ?? [],
+  );
+  readonly offeredTypes = computed(
+    () =>
+      this.data()?.coffeeTypes.filter((c) => c.active && !c.attendanceOnly) ??
+      [],
+  );
+  readonly attendanceType = computed(() =>
+    this.data()?.coffeeTypes.find((c) => c.active && c.attendanceOnly),
+  );
   readonly loading = signal(true);
   readonly ready = signal(false);
   readonly busy = signal(false);
@@ -37,7 +50,8 @@ export class App implements OnInit {
       this.data()?.orders.filter((o) => o.meetingId === this.meetingId()) ?? [],
   );
   readonly totals = computed(() =>
-    this.coffees
+    (this.data()?.coffeeTypes ?? [])
+      .filter((c) => !c.attendanceOnly)
       .map((c) => ({
         name: c.name,
         count: this.meetingOrders().filter((o) => o.coffeeType === c.name)
@@ -45,6 +59,13 @@ export class App implements OnInit {
       }))
       .filter((c) => c.count),
   );
+  readonly drinkCount = computed(
+    () =>
+      this.meetingOrders().filter((o) => !this.isAttendanceOnly(o.coffeeType))
+        .length,
+  );
+  offeredCoffeeTypes: string[] = [];
+  private offeringInitialized = false;
   firstName = "";
   lastName = "";
   password = "";
@@ -74,7 +95,18 @@ export class App implements OnInit {
   }
 
   private setState(state: State): void {
+    if (
+      !Array.isArray(state.coffeeTypes) ||
+      state.meetings.some((m) => !Array.isArray(m.coffeeTypes))
+    )
+      throw new Error(
+        "Uruchom migrację 20261021_coffee_types.sql w SQL Editor Supabase.",
+      );
     this.data.set(state);
+    if (!this.offeringInitialized) {
+      this.offeredCoffeeTypes = this.offeredTypes().map((c) => c.name);
+      this.offeringInitialized = true;
+    }
     if (!state.meetings.some((m) => m.id === this.meetingId())) {
       this.meetingId.set(
         (
@@ -114,6 +146,19 @@ export class App implements OnInit {
   person(id: string): string {
     const user = this.data()?.users.find((u) => u.id === id);
     return user ? `${user.firstName} ${user.lastName}` : "Użytkownik";
+  }
+
+  isAttendanceOnly(name: string): boolean {
+    return (
+      this.data()?.coffeeTypes.find((c) => c.name === name)?.attendanceOnly ??
+      false
+    );
+  }
+
+  toggleCoffeeType(name: string, enabled: boolean): void {
+    this.offeredCoffeeTypes = enabled
+      ? [...new Set([...this.offeredCoffeeTypes, name])]
+      : this.offeredCoffeeTypes.filter((value) => value !== name);
   }
 
   async login(): Promise<void> {
@@ -226,10 +271,15 @@ export class App implements OnInit {
 
   async saveOrder(): Promise<void> {
     await this.run(async () => {
-      if (!this.selectedCoffee()) throw new Error("Wybierz kawę.");
+      if (!this.selectedCoffee())
+        throw new Error("Wybierz napój lub obecność bez napoju.");
       await this.api.saveOrder(this.meetingId(), this.selectedCoffee());
       this.setState(await this.api.state());
-      this.notice.set("Gotowe! Twoja kawa jest na liście.");
+      this.notice.set(
+        this.isAttendanceOnly(this.selectedCoffee())
+          ? "Twoja obecność jest zapisana, bez zamówienia napoju."
+          : "Gotowe! Twój napój jest na liście.",
+      );
     });
   }
 
@@ -237,7 +287,7 @@ export class App implements OnInit {
     await this.run(async () => {
       await this.api.deleteOrder(this.meetingId());
       this.setState(await this.api.state());
-      this.notice.set("Zamówienie zostało anulowane.");
+      this.notice.set("Zapis na spotkanie został anulowany.");
     });
   }
 
@@ -246,6 +296,7 @@ export class App implements OnInit {
       await this.api.createMeeting(
         this.meetingName,
         warsawDateTimeToIso(this.meetingDate),
+        this.offeredCoffeeTypes,
       );
       this.setState(await this.api.state());
       this.meetingName = "";

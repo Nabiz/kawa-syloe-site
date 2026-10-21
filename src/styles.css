@@ -177,6 +177,27 @@ h2 {
   display: block;
   margin: 18px auto 0;
 }
+.offer-options {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+  min-width: 0;
+}
+.offer-options legend {
+  font-size: 13px;
+  padding: 0 6px;
+}
+.offer-option {
+  flex-direction: row;
+  align-items: center;
+  margin: 10px 0;
+}
+.offer-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--green);
+}
 form {
   display: flex;
   flex-direction: column;
@@ -480,13 +501,13 @@ select:disabled {
   width: 100%;
   height: 100%;
 }
-.cup-illustration[data-coffee="Latte"] {
+.cup-illustration.milky {
   color: #bec7b0;
 }
-.cup-illustration[data-coffee="Americano"] {
+.cup-illustration.tea {
   color: #c9ac8d;
 }
-.cup-illustration[data-coffee="Espresso"] {
+.cup-illustration.black {
   color: #708570;
   transform: scale(0.83);
   transform-origin: center bottom;
