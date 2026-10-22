@@ -253,7 +253,7 @@
           />{{ coffee.name }}</label
         >
         }
-        <p class="help">Obecność bez napoju jest zawsze dostępna.</p>
+        <p class="help">Opcja „Inna (daj znać po spotkaniu)” jest zawsze dostępna.</p>
       </fieldset>
       @if (error()) {
       <p class="inline-error">{{ error() }}</p>
@@ -331,7 +331,7 @@
   </p>
   } @if (view() === 'order') { @if (meeting()) {
   <fieldset class="coffee-fieldset" [disabled]="busy() || isClosed(meeting())">
-    <legend>Wybierz napój lub obecność bez napoju</legend>
+    <legend>Wybierz kawę lub herbatę</legend>
     <div class="coffee-grid">
       @for (coffee of coffees(); track coffee.name) {
       <label
@@ -345,11 +345,7 @@
           [ngModel]="selectedCoffee()"
           (ngModelChange)="chooseCoffee($event)"
         />
-        <span
-          ><strong>{{ coffee.name }}</strong>@if (coffee.attendanceOnly) {<small
-            >Obecność bez napoju</small
-          >}</span
-        >
+        <span><strong>{{ coffee.name }}</strong></span>
       </label>
       }
     </div>
@@ -357,8 +353,7 @@
   <section class="order-actions" aria-label="Zapis wyboru">
     @if (savedCoffee(); as coffee) {
     <p class="saved-choice">
-      ✓ {{ isAttendanceOnly(coffee) ? 'Zapisano obecność bez napoju' :
-      'Zapisano: ' + coffee }}
+      ✓ Zapisano: {{ coffee }}
     </p>
     } @else {
     <p class="muted">Nie masz jeszcze zapisu na to spotkanie.</p>
@@ -412,12 +407,7 @@
     <p class="muted">Zapisy zakończone</p>
     }
     <div class="totals">
-      <div><strong>{{ meetingOrders().length }}</strong><span>Osoby</span></div>
-      <div><strong>{{ drinkCount() }}</strong><span>Napoje</span></div>
-      <div>
-        <strong>{{ meetingOrders().length - drinkCount() }}</strong
-        ><span>Bez napoju</span>
-      </div>
+      <div><strong>{{ meetingOrders().length }}</strong><span>Odpowiedzi</span></div>
       @for (total of totals(); track total.name) {
       <div><strong>{{ total.count }}</strong><span>{{ total.name }}</span></div>
       }
@@ -428,7 +418,7 @@
         <thead>
           <tr>
             <th>Osoba</th>
-            <th>Napój / obecność</th>
+            <th>Wybór</th>
           </tr>
         </thead>
         <tbody>
@@ -436,8 +426,7 @@
           <tr>
             <td>{{ person(order.userId) }}</td>
             <td>
-              {{ isAttendanceOnly(order.coffeeType) ? 'Obecność bez napoju' :
-              order.coffeeType }}
+              {{ order.coffeeType }}
             </td>
           </tr>
           }

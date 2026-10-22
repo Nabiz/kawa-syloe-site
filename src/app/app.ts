@@ -76,9 +76,6 @@ export class App implements OnInit, OnDestroy {
       this.data()?.coffeeTypes.filter((c) => c.active && !c.attendanceOnly) ??
       [],
   );
-  readonly attendanceType = computed(() =>
-    this.data()?.coffeeTypes.find((c) => c.active && c.attendanceOnly),
-  );
   readonly ownOrder = computed(() =>
     this.data()?.orders.find(
       (o) =>
@@ -105,18 +102,12 @@ export class App implements OnInit, OnDestroy {
   );
   readonly totals = computed(() =>
     (this.data()?.coffeeTypes ?? [])
-      .filter((c) => !c.attendanceOnly)
       .map((c) => ({
         name: c.name,
         count: this.meetingOrders().filter((o) => o.coffeeType === c.name)
           .length,
       }))
       .filter((c) => c.count),
-  );
-  readonly drinkCount = computed(
-    () =>
-      this.meetingOrders().filter((o) => !this.isAttendanceOnly(o.coffeeType))
-        .length,
   );
   readonly retryAvailable = signal(false);
   private retryAction?: () => Promise<void>;
@@ -220,12 +211,6 @@ export class App implements OnInit, OnDestroy {
   person(id: string): string {
     const user = this.data()?.users.find((u) => u.id === id);
     return user ? `${user.firstName} ${user.lastName}` : "Użytkownik";
-  }
-  isAttendanceOnly(name: string): boolean {
-    return (
-      this.data()?.coffeeTypes.find((c) => c.name === name)?.attendanceOnly ??
-      false
-    );
   }
   toggleCoffeeType(name: string, enabled: boolean): void {
     this.offeredCoffeeTypes = enabled
@@ -337,14 +322,10 @@ export class App implements OnInit, OnDestroy {
       const coffee = this.selectedCoffee();
       if (!id || this.isClosed(this.meeting()))
         throw new Error("Wybierz przyszłe spotkanie.");
-      if (!coffee) throw new Error("Wybierz napój lub obecność bez napoju.");
+      if (!coffee) throw new Error("Wybierz kawę lub herbatę.");
       await this.api.saveOrder(id, coffee);
       this.confirmedWrites.update((values) => ({ ...values, [id]: coffee }));
-      this.notify(
-        this.isAttendanceOnly(coffee)
-          ? "Zapisano obecność bez napoju."
-          : `Zapisano: ${coffee}.`,
-      );
+      this.notify(`Zapisano: ${coffee}.`);
       await this.refreshAfterWrite();
     });
   }

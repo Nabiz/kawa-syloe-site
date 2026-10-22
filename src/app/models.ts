@@ -27,7 +27,7 @@ export const DEFAULT_COFFEE_TYPES: CoffeeType[] = [
   },
   {
     name: "Inna (daj znać po spotkaniu)",
-    detail: "Będę na spotkaniu, bez zamawiania napoju",
+    detail: "Daj znać po spotkaniu",
     attendanceOnly: true,
     active: true,
   },

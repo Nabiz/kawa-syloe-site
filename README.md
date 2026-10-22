@@ -39,10 +39,10 @@ danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim pra
 - Samodzielna rejestracja po podaniu wspólnego hasła od admina.
 - Najbliższe spotkanie z widoczną datą i godziną oraz dostęp do wszystkich przyszłych terminów.
 - Wybór napoju z menu ustalonego przez admina i trwałe potwierdzenie zapisu.
-- Zapis obecności bez napoju przez opcję „Inna (daj znać po spotkaniu)”.
+- Wybór „Inna (daj znać po spotkaniu)” bez zamawiania z wyprzedzeniem.
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień po rozpoczęciu spotkania.
-- Panel admina: zapisane osoby, liczba napojów oraz osoby bez napoju.
+- Panel admina: liczba odpowiedzi oraz liczba wyborów każdej pozycji z formularza.
 - Oddzielne widoki admina: Spotkania, Nowe spotkanie i Archiwum.
 - Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
@@ -130,12 +130,14 @@ Migracja dodaje katalog `coffee_types` z czterema pozycjami:
 **Czarna**, **Biała**, **Herbata Zimowa**, **Inna (daj znać po spotkaniu)**.
 Admin zaznacza dostępne napoje podczas tworzenia spotkania. Uczestnik widzi tylko
 menu tego spotkania. Baza weryfikuje dostępność także przy bezpośrednim wywołaniu API.
-Opcja „Inna…” oznacza obecność bez zamawiania napoju i jest zawsze dostępna.
-Admin może odznaczyć wszystkie napoje i utworzyć spotkanie z samymi zapisami obecności.
+Opcja „Inna (daj znać po spotkaniu)” jest zawsze dostępna. Oznacza, że uczestnik
+nie zamawia z wyprzedzeniem jednej z pozostałych pozycji formularza.
+Admin może odznaczyć wszystkie pozostałe pozycje i zostawić tylko opcję „Inna…”.
 
-Zapis „Inna…” jest jednym wierszem w `coffee_orders`, oznaczonym przez powiązany
-typ `attendance_only = true`. Jest wliczany do liczby osób, ale nie do liczby napojów.
-Zmiana wyboru nadpisuje ten sam zapis, anulowanie usuwa zapis i zmniejsza liczbę osób.
+Zapis „Inna…” jest jednym wierszem w `coffee_orders`. Historyczna flaga
+`attendance_only = true` określa automatyczną dostępność tej opcji w menu.
+Statystyki pokazują liczbę odpowiedzi oraz wybory poszczególnych pozycji, w tym „Inna…”.
+Zmiana wyboru nadpisuje ten sam zapis, anulowanie usuwa zapis i zmniejsza liczbę odpowiedzi.
 Tak jak wcześniej, zmiany są możliwe tylko do rozpoczęcia spotkania.
 
 Dotychczasowe spotkania i zamówienia są zachowane z oryginalnymi nazwami napojów.
@@ -189,8 +191,8 @@ Tabele biznesowe, widoczne w Table Editor:
 - `coffee_users`: imię, nazwisko, hash hasła, oznaczenie admina. Para imię + nazwisko
   jest unikalna bez rozróżniania wielkości liter i skrajnych spacji.
 - `coffee_meetings`: nazwa, data i godzina rozpoczęcia.
-- `coffee_orders`: napój lub obecność bez napoju oraz relacje do użytkownika i spotkania.
-- `coffee_types`: katalog napojów i oznaczenie opcji bez napoju.
+- `coffee_orders`: wybór z formularza oraz relacje do użytkownika i spotkania.
+- `coffee_types`: katalog napojów i oznaczenie automatycznie dostępnej opcji „Inna…”.
 - `coffee_meeting_types`: menu wybrane dla danego spotkania.
 
 W prywatnym schemacie `coffee_private` jest jedna techniczna tabela sesji.
