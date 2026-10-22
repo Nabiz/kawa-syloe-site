@@ -180,12 +180,9 @@ export class CoffeeService {
   }
 
   async logout(): Promise<void> {
-    try {
-      if (this.demo) this.demoStore.logout(this.token);
-      else await this.rpc("coffee_logout", { p_token: this.token });
-    } finally {
-      this.clearSession();
-    }
+    if (this.demo) this.demoStore.logout(this.token);
+    else await this.rpc("coffee_logout", { p_token: this.token });
+    this.clearSession();
   }
 
   clearSession(): void {
@@ -215,9 +212,16 @@ export class CoffeeService {
           signal: AbortSignal.timeout(15000),
         },
       );
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError")
+      )
+        throw new Error(
+          "Przekroczono czas oczekiwania. Nie otrzymaliśmy potwierdzenia operacji.",
+        );
       throw new Error(
-        "Brak połączenia z Supabase. Sprawdź internet i spróbuj ponownie.",
+        "Brak połączenia z Supabase. Sprawdź internet. Nie otrzymaliśmy potwierdzenia operacji.",
       );
     }
     const data = await response.json();

@@ -1,8 +1,28 @@
-import { Component, computed, inject, OnInit, signal } from "@angular/core";
+import {
+  Component,
+  computed,
+  inject,
+  OnDestroy,
+  OnInit,
+  signal,
+} from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { CoffeeService } from "./coffee.service";
-import { Meeting, State } from "./models";
+import type { Meeting, State } from "./models";
+import { archivedMeetings, upcomingMeetings } from "./meetings";
 import { warsawDateTimeToIso } from "./time";
+
+type View = "order" | "meetings" | "create" | "archive";
+type Action =
+  | "init"
+  | "login"
+  | "invitation"
+  | "register"
+  | "save"
+  | "cancel"
+  | "create"
+  | "refresh"
+  | "logout";
 
 @Component({
   selector: "app-root",
@@ -10,9 +30,41 @@ import { warsawDateTimeToIso } from "./time";
   imports: [FormsModule],
   templateUrl: "./app.html",
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   readonly api = inject(CoffeeService);
   readonly data = signal<State | null>(null);
+  readonly now = signal(Date.now());
+  readonly loading = signal(true);
+  readonly ready = signal(false);
+  readonly busy = signal(false);
+  readonly error = signal("");
+  readonly notice = signal("");
+  readonly feedbackClosed = signal(false);
+  readonly action = signal<Action>("init");
+  readonly view = signal<View>("order");
+  readonly authView = signal<"login" | "invitation" | "register">("login");
+  readonly meetingId = signal("");
+  readonly selectedCoffee = signal("");
+  readonly showMeetingPicker = signal(false);
+  readonly futureMeetings = computed(() =>
+    upcomingMeetings(this.data()?.meetings ?? [], this.now()),
+  );
+  readonly pastMeetings = computed(() =>
+    archivedMeetings(this.data()?.meetings ?? [], this.now()),
+  );
+  readonly visibleMeetings = computed(() =>
+    this.view() === "archive"
+      ? this.pastMeetings()
+      : this.futureMeetings(),
+  );
+  readonly meeting = computed<Meeting | undefined>(
+    () =>
+      this.visibleMeetings().find((m) => m.id === this.meetingId()) ??
+      this.visibleMeetings()[0],
+  );
+  readonly meetingIndex = computed(() =>
+    this.futureMeetings().findIndex((item) => item.id === this.meeting()?.id),
+  );
   readonly coffees = computed(
     () =>
       this.data()?.coffeeTypes.filter((c) =>
@@ -27,27 +79,29 @@ export class App implements OnInit {
   readonly attendanceType = computed(() =>
     this.data()?.coffeeTypes.find((c) => c.active && c.attendanceOnly),
   );
-  readonly loading = signal(true);
-  readonly ready = signal(false);
-  readonly busy = signal(false);
-  readonly error = signal("");
-  readonly notice = signal("");
-  readonly view = signal<"order" | "admin">("order");
-  readonly authView = signal<"login" | "invitation" | "register">("login");
-  readonly meetingId = signal("");
-  readonly selectedCoffee = signal("");
-  readonly meeting = computed(() =>
-    this.data()?.meetings.find((m) => m.id === this.meetingId()),
-  );
   readonly ownOrder = computed(() =>
     this.data()?.orders.find(
       (o) =>
-        o.meetingId === this.meetingId() && o.userId === this.data()?.user.id,
+        o.meetingId === this.meeting()?.id && o.userId === this.data()?.user.id,
     ),
+  );
+  // Retain acknowledged writes if the following read fails.
+  private readonly confirmedWrites = signal<Record<string, string | null>>({});
+  readonly savedCoffee = computed(() => {
+    const id = this.meeting()?.id ?? "";
+    const confirmations = this.confirmedWrites();
+    return Object.hasOwn(confirmations, id)
+      ? confirmations[id]
+      : (this.ownOrder()?.coffeeType ?? null);
+  });
+  readonly unsavedChoice = computed(
+    () =>
+      !!this.selectedCoffee() && this.selectedCoffee() !== this.savedCoffee(),
   );
   readonly meetingOrders = computed(
     () =>
-      this.data()?.orders.filter((o) => o.meetingId === this.meetingId()) ?? [],
+      this.data()?.orders.filter((o) => o.meetingId === this.meeting()?.id) ??
+      [],
   );
   readonly totals = computed(() =>
     (this.data()?.coffeeTypes ?? [])
@@ -64,6 +118,10 @@ export class App implements OnInit {
       this.meetingOrders().filter((o) => !this.isAttendanceOnly(o.coffeeType))
         .length,
   );
+  readonly retryAvailable = signal(false);
+  private retryAction?: () => Promise<void>;
+  private clockTimer?: ReturnType<typeof setInterval>;
+  private feedbackTimer?: ReturnType<typeof setTimeout>;
   offeredCoffeeTypes: string[] = [];
   private offeringInitialized = false;
   firstName = "";
@@ -76,24 +134,30 @@ export class App implements OnInit {
   registrationPasswordConfirmation = "";
   meetingName = "";
   meetingDate = "";
-  newFirstName = "";
-  newLastName = "";
-  newPassword = "";
-  resetUserId = "";
-  resetPasswordValue = "";
 
   async ngOnInit(): Promise<void> {
-    try {
+    this.clockTimer ??= setInterval(() => this.updateClock(), 30_000);
+    await this.load();
+  }
+  ngOnDestroy(): void {
+    clearInterval(this.clockTimer);
+    clearTimeout(this.feedbackTimer);
+  }
+  private async load(): Promise<void> {
+    this.loading.set(true);
+    await this.run("init", async () => {
       const state = await this.api.init();
       if (state) this.setState(state);
       this.ready.set(true);
-    } catch (error) {
-      this.error.set(this.message(error));
-    } finally {
-      this.loading.set(false);
-    }
+    });
+    this.loading.set(false);
   }
-
+  private updateClock(): void {
+    this.now.set(Date.now());
+    const id = this.meeting()?.id ?? "";
+    if (this.view() !== "create" && id !== this.meetingId())
+      this.selectMeeting(id);
+  }
   private setState(state: State): void {
     if (
       !Array.isArray(state.coffeeTypes) ||
@@ -103,30 +167,39 @@ export class App implements OnInit {
         "Uruchom migrację 20261021_coffee_types.sql w SQL Editor Supabase.",
       );
     this.data.set(state);
+    this.confirmedWrites.set({});
+    this.now.set(Date.now());
     if (!this.offeringInitialized) {
       this.offeredCoffeeTypes = this.offeredTypes().map((c) => c.name);
       this.offeringInitialized = true;
     }
-    if (!state.meetings.some((m) => m.id === this.meetingId())) {
-      this.meetingId.set(
-        (
-          state.meetings.find(
-            (m) => new Date(m.startsAt).getTime() > Date.now(),
-          ) ?? state.meetings.at(-1)
-        )?.id ?? "",
-      );
-    }
-    this.selectedCoffee.set(this.ownOrder()?.coffeeType ?? "");
+    this.meetingId.set(this.meeting()?.id ?? "");
+    this.selectedCoffee.set(this.savedCoffee() ?? "");
   }
-
+  changeView(view: View): void {
+    if (this.busy()) return;
+    this.view.set(view);
+    this.selectMeeting(this.meeting()?.id ?? "");
+  }
   selectMeeting(id: string): void {
     this.meetingId.set(id);
-    this.selectedCoffee.set(this.ownOrder()?.coffeeType ?? "");
-    this.notice.set("");
+    this.showMeetingPicker.set(false);
+    this.selectedCoffee.set(this.savedCoffee() ?? "");
+    this.clearFeedback();
   }
-
+  moveMeeting(direction: -1 | 1): void {
+    if (this.busy()) return;
+    const index = this.meetingIndex();
+    if (index < 0) return;
+    const next = this.futureMeetings()[index + direction];
+    if (next) this.selectMeeting(next.id);
+  }
+  chooseCoffee(name: string): void {
+    this.selectedCoffee.set(name);
+    this.clearFeedback();
+  }
   isClosed(meeting?: Meeting): boolean {
-    return !!meeting && Date.parse(meeting.startsAt) <= Date.now();
+    return !!meeting && Date.parse(meeting.startsAt) <= this.now();
   }
   date(value: string): string {
     return new Intl.DateTimeFormat("pl-PL", {
@@ -134,6 +207,7 @@ export class App implements OnInit {
       weekday: "long",
       day: "numeric",
       month: "long",
+      year: "numeric",
     }).format(new Date(value));
   }
   time(value: string): string {
@@ -147,14 +221,12 @@ export class App implements OnInit {
     const user = this.data()?.users.find((u) => u.id === id);
     return user ? `${user.firstName} ${user.lastName}` : "Użytkownik";
   }
-
   isAttendanceOnly(name: string): boolean {
     return (
       this.data()?.coffeeTypes.find((c) => c.name === name)?.attendanceOnly ??
       false
     );
   }
-
   toggleCoffeeType(name: string, enabled: boolean): void {
     this.offeredCoffeeTypes = enabled
       ? [...new Set([...this.offeredCoffeeTypes, name])]
@@ -162,7 +234,8 @@ export class App implements OnInit {
   }
 
   async login(): Promise<void> {
-    await this.run(async () => {
+    await this.run("login", async () => {
+      this.view.set("order");
       this.setState(
         await this.api.login(
           this.firstName.trim(),
@@ -172,10 +245,8 @@ export class App implements OnInit {
       );
       this.password = "";
       this.clearRegistration();
-      this.view.set("order");
     });
   }
-
   private clearRegistration(): void {
     this.registrationPassword = "";
     this.registrationFirstName = "";
@@ -184,23 +255,18 @@ export class App implements OnInit {
     this.registrationPasswordConfirmation = "";
     this.authView.set("login");
   }
-
   openRegistration(): void {
     this.clearRegistration();
     this.password = "";
-    this.error.set("");
-    this.notice.set("");
+    this.clearFeedback();
     this.authView.set("invitation");
   }
-
   backToLogin(): void {
     this.clearRegistration();
-    this.error.set("");
-    this.notice.set("");
+    this.clearFeedback();
   }
-
   async unlockRegistration(): Promise<void> {
-    await this.run(async () => {
+    await this.run("invitation", async () => {
       try {
         await this.api.checkRegistrationPassword(this.registrationPassword);
         this.authView.set("register");
@@ -210,9 +276,8 @@ export class App implements OnInit {
       }
     });
   }
-
   async register(): Promise<void> {
-    await this.run(async () => {
+    await this.run("register", async () => {
       if (
         this.registrationAccountPassword !==
         this.registrationPasswordConfirmation
@@ -241,114 +306,166 @@ export class App implements OnInit {
       this.lastName = this.registrationLastName.trim();
       this.password = "";
       this.clearRegistration();
-      this.notice.set("Konto zostało utworzone. Zaloguj się swoim hasłem.");
+      this.notify("Konto zostało utworzone. Zaloguj się swoim hasłem.");
     });
   }
-
   demoLogin(admin: boolean): void {
     this.firstName = admin ? "Jan" : "Anna";
     this.lastName = admin ? "Kowalski" : "Nowak";
     this.password = "Kawa123!";
     void this.login();
   }
-
   async logout(): Promise<void> {
-    await this.run(async () => {
-      try {
-        await this.api.logout();
-      } finally {
-        this.data.set(null);
-        this.password = "";
-        this.meetingId.set("");
-        this.view.set("order");
-      }
+    await this.run("logout", async () => {
+      await this.api.logout();
+      this.data.set(null);
+      this.confirmedWrites.set({});
+      this.password = "";
+      this.meetingId.set("");
+      this.view.set("order");
     });
   }
-
   async refresh(): Promise<void> {
-    await this.run(async () => this.setState(await this.api.state()));
+    await this.run("refresh", async () => {
+      this.setState(await this.api.state());
+      this.notify("Dane odświeżone.");
+    });
   }
-
   async saveOrder(): Promise<void> {
-    await this.run(async () => {
-      if (!this.selectedCoffee())
-        throw new Error("Wybierz napój lub obecność bez napoju.");
-      await this.api.saveOrder(this.meetingId(), this.selectedCoffee());
-      this.setState(await this.api.state());
-      this.notice.set(
-        this.isAttendanceOnly(this.selectedCoffee())
-          ? "Twoja obecność jest zapisana, bez zamówienia napoju."
-          : "Gotowe! Twój napój jest na liście.",
+    await this.run("save", async () => {
+      const id = this.meeting()?.id;
+      const coffee = this.selectedCoffee();
+      if (!id || this.isClosed(this.meeting()))
+        throw new Error("Wybierz przyszłe spotkanie.");
+      if (!coffee) throw new Error("Wybierz napój lub obecność bez napoju.");
+      await this.api.saveOrder(id, coffee);
+      this.confirmedWrites.update((values) => ({ ...values, [id]: coffee }));
+      this.notify(
+        this.isAttendanceOnly(coffee)
+          ? "Zapisano obecność bez napoju."
+          : `Zapisano: ${coffee}.`,
       );
+      await this.refreshAfterWrite();
     });
   }
-
   async cancelOrder(): Promise<void> {
-    await this.run(async () => {
-      await this.api.deleteOrder(this.meetingId());
-      this.setState(await this.api.state());
-      this.notice.set("Zapis na spotkanie został anulowany.");
+    await this.run("cancel", async () => {
+      const id = this.meeting()?.id;
+      if (!id) return;
+      await this.api.deleteOrder(id);
+      this.confirmedWrites.update((values) => ({ ...values, [id]: null }));
+      this.selectedCoffee.set("");
+      this.notify("Zapis na spotkanie został anulowany.");
+      await this.refreshAfterWrite();
     });
   }
-
+  private async refreshAfterWrite(): Promise<void> {
+    try {
+      this.setState(await this.api.state());
+    } catch (error) {
+      this.showError(
+        new Error(
+          `Zmiana została zapisana. Nie udało się odświeżyć danych: ${this.message(error)}`,
+        ),
+        "refresh",
+        () => this.refresh(),
+      );
+    }
+  }
   async createMeeting(): Promise<void> {
-    await this.run(async () => {
+    await this.run("create", async () => {
+      const previousIds = new Set(this.data()?.meetings.map((m) => m.id));
       await this.api.createMeeting(
         this.meetingName,
         warsawDateTimeToIso(this.meetingDate),
         this.offeredCoffeeTypes,
       );
-      this.setState(await this.api.state());
       this.meetingName = "";
       this.meetingDate = "";
-      this.notice.set("Spotkanie zostało dodane.");
+      this.view.set("meetings");
+      this.notify("Spotkanie zostało dodane.");
+      try {
+        const state = await this.api.state();
+        this.setState(state);
+        const added = state.meetings.find((m) => !previousIds.has(m.id));
+        if (added) this.meetingId.set(added.id);
+      } catch (error) {
+        this.showError(
+          new Error(
+            `Spotkanie zostało dodane. Nie udało się odświeżyć listy: ${this.message(error)}`,
+          ),
+          "refresh",
+          () => this.refresh(),
+        );
+      }
     });
   }
 
-  async createUser(): Promise<void> {
-    await this.run(async () => {
-      await this.api.createUser(
-        this.newFirstName,
-        this.newLastName,
-        this.newPassword,
-      );
-      this.setState(await this.api.state());
-      this.newFirstName = "";
-      this.newLastName = "";
-      this.newPassword = "";
-      this.notice.set("Konto zostało utworzone. Przekaż tej osobie hasło.");
-    });
+  dismissFeedback(): void {
+    this.feedbackClosed.set(true);
   }
-
-  async resetPassword(): Promise<void> {
-    await this.run(async () => {
-      await this.api.resetPassword(this.resetUserId, this.resetPasswordValue);
-      this.resetPasswordValue = "";
-      this.resetUserId = "";
-      this.notice.set(
-        "Hasło zostało zmienione. Poprzednie sesje tej osoby wygasły.",
-      );
-    });
+  async retry(): Promise<void> {
+    if (!this.busy()) await this.retryAction?.();
   }
-
+  private clearFeedback(): void {
+    clearTimeout(this.feedbackTimer);
+    this.error.set("");
+    this.notice.set("");
+    this.feedbackClosed.set(false);
+    this.retryAvailable.set(false);
+    this.retryAction = undefined;
+  }
+  private notify(message: string): void {
+    clearTimeout(this.feedbackTimer);
+    this.notice.set(message);
+    this.feedbackClosed.set(false);
+    this.feedbackTimer = setTimeout(() => this.feedbackClosed.set(true), 7000);
+  }
   private message(error: unknown): string {
     return error instanceof Error
       ? error.message
       : "Coś poszło nie tak. Spróbuj ponownie.";
   }
-  private async run(action: () => Promise<void>): Promise<void> {
+  private showError(
+    error: unknown,
+    action: Action,
+    retry?: () => Promise<void>,
+  ): void {
+    clearTimeout(this.feedbackTimer);
+    this.action.set(action);
+    this.error.set(this.message(error));
+    this.feedbackClosed.set(false);
+    this.retryAction = retry;
+    this.retryAvailable.set(!!retry);
+    if (this.error().includes("Sesja wygasła")) {
+      this.api.clearSession();
+      this.data.set(null);
+      this.confirmedWrites.set({});
+      this.retryAvailable.set(false);
+      this.retryAction = undefined;
+    }
+  }
+  private async run(action: Action, work: () => Promise<void>): Promise<void> {
     if (this.busy()) return;
+    this.clearFeedback();
+    this.action.set(action);
     this.busy.set(true);
-    this.error.set("");
-    this.notice.set("");
     try {
-      await action();
+      await work();
     } catch (error) {
-      this.error.set(this.message(error));
-      if (this.error().includes("Sesja wygasła")) {
-        this.api.clearSession();
-        this.data.set(null);
-      }
+      // A timed-out INSERT may already have succeeded. Retry buttons are limited
+      // to reads and the idempotent order upsert/delete, never account/meeting creation.
+      const retry =
+        action === "init"
+          ? () => this.load()
+          : action === "save"
+            ? () => this.saveOrder()
+            : action === "cancel"
+              ? () => this.cancelOrder()
+              : action === "refresh"
+                ? () => this.refresh()
+                : undefined;
+      this.showError(error, action, retry);
     } finally {
       this.busy.set(false);
     }

@@ -11,6 +11,7 @@ import type {
 type DemoUser = User & { hash: string; salt: string };
 type DemoSession = { token: string; userId: string; expiresAt: number };
 type DemoData = {
+  sessionPolicyVersion?: number;
   coffeeTypes: CoffeeType[];
   users: DemoUser[];
   meetings: Meeting[];
@@ -68,6 +69,7 @@ export class DemoStore {
   async init(): Promise<void> {
     if (this.storage.getItem(KEY)) {
       const data = this.read();
+      let changed = false;
       if (!data.coffeeTypes) {
         data.coffeeTypes = DEFAULT_COFFEE_TYPES.map((c) => ({ ...c }));
         for (const name of new Set(data.orders.map((o) => o.coffeeType))) {
@@ -88,8 +90,20 @@ export class DemoStore {
                 .map((o) => o.coffeeType),
             ]),
           ];
-        this.write(data);
+        changed = true;
       }
+      if (data.sessionPolicyVersion !== 1) {
+        for (const session of data.sessions) {
+          if (
+            session.expiresAt > this.now() &&
+            data.users.some((u) => u.id === session.userId && !u.isAdmin)
+          )
+            session.expiresAt += 173 * 24 * 60 * 60 * 1000;
+        }
+        data.sessionPolicyVersion = 1;
+        changed = true;
+      }
+      if (changed) this.write(data);
       return;
     }
     const users: DemoUser[] = [];
@@ -118,6 +132,7 @@ export class DemoStore {
       coffeeTypes: DEFAULT_COFFEE_TYPES.map((c) => c.name),
     };
     this.write({
+      sessionPolicyVersion: 1,
       coffeeTypes: DEFAULT_COFFEE_TYPES.map((c) => ({ ...c })),
       users,
       meetings: [meeting],
@@ -174,7 +189,7 @@ export class DemoStore {
     data.sessions.push({
       token,
       userId: user.id,
-      expiresAt: this.now() + 7 * 24 * 60 * 60 * 1000,
+      expiresAt: this.now() + (user.isAdmin ? 7 : 180) * 24 * 60 * 60 * 1000,
     });
     this.write(data);
     return { token, user: publicUser(user) };

@@ -37,12 +37,14 @@ danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim pra
 
 - Logowanie imieniem, nazwiskiem i hasłem, bez maila, telefonu i osobnego loginu.
 - Samodzielna rejestracja po podaniu wspólnego hasła od admina.
-- Wybór spotkania i napoju z menu ustalonego przez admina.
+- Najbliższe spotkanie z widoczną datą i godziną oraz dostęp do wszystkich przyszłych terminów.
+- Wybór napoju z menu ustalonego przez admina i trwałe potwierdzenie zapisu.
 - Zapis obecności bez napoju przez opcję „Inna (daj znać po spotkaniu)”.
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień po rozpoczęciu spotkania.
 - Panel admina: zapisane osoby, liczba napojów oraz osoby bez napoju.
-- Tworzenie spotkań i kont oraz reset hasła innej osoby.
+- Oddzielne widoki admina: Spotkania, Nowe spotkanie i Archiwum.
+- Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
 
 ## Podłączenie Supabase
@@ -147,6 +149,39 @@ usuwania kont i zapisów.
 Katalog `supabase/` nadal jest ignorowany przez Git — migrację zachowaj lokalnie
 i wykonaj w SQL Editor, nie jest automatycznie wdrażana przez GitHub Actions.
 
+### Uproszczony interfejs i długie sesje — aktualizacja przed pilotażem
+
+W SQL Editor uruchom lokalny plik **`supabase/migrations/20261022_long_sessions.sql`**.
+Wymaga istniejącego `schema.sql`; nie uruchamiaj ponownie skryptu bazowego.
+Migracje katalogu napojów i rejestracji pozostają potrzebne do tych funkcji.
+Katalog `supabase/` nadal jest poza Gitem.
+
+Sesja uczestnika jest ważna **180 dni od zalogowania**, admina **7 dni**.
+Nie jest automatycznie odnawiana przy odczytywaniu danych. Migracja jednorazowo
+wydłuża ważne sesje uczestników do 180 dni od ich pierwotnego utworzenia, nie
+przywraca wygasłych sesji i nie wydłuża ich ponownie przy powtórnym wykonaniu.
+Wylogowanie i reset hasła nadal usuwają sesje w bazie. Wyczyszczenie danych
+przeglądarki wymaga ponownego logowania.
+
+Uczestnik domyślnie widzi najbliższe przyszłe spotkanie. Przyciski Poprzednie i Kolejne
+pozwalają przechodzić między terminami, a „Wybierz termin” rozwija listę wszystkich
+przyszłych spotkań bez limitu ich liczby. Przy jednym spotkaniu nawigacja jest ukryta.
+Po przełączeniu daty wczytywane są menu i zapis użytkownika dla wybranego spotkania.
+Zakończone spotkania są dostępne w Archiwum admina.
+Archiwizacja wynika z godziny rozpoczęcia: bez kasowania danych ani osobnej tabeli.
+Lokalny zegar odświeża podział co 30 sekund, bez dodatkowych requestów do API.
+
+Potwierdzony wybór pozostaje przy przycisku zapisu, a niezapisana zmiana ma osobne
+oznaczenie. Powiadomienia są przypięte do ekranu. Sukces znika po 7 sekundach,
+błędy pozostają do zamknięcia lub nowej akcji. Zamknięcie powiadomienia nie usuwa
+błędu przy formularzu. Po błędzie zapisu wybór zostaje na ekranie. Jeżeli zapis
+się powiedzie, a odczyt zawiedzie, potwierdzenie zostaje zachowane, a ponowienie
+odświeża tylko dane. Tworzenie kont i spotkań nie jest automatycznie ponawiane.
+
+Formularze dodawania użytkownika i resetu hasła usunięto z panelu admina.
+Dotychczasowe funkcje w bazie zachowały kontrolę uprawnień. Framework, system
+logowania i hosting pozostały bez zmian.
+
 ### Tabele i API
 
 Tabele biznesowe, widoczne w Table Editor:
@@ -160,7 +195,8 @@ Tabele biznesowe, widoczne w Table Editor:
 
 W prywatnym schemacie `coffee_private` jest jedna techniczna tabela sesji.
 Hasła w Supabase są hashowane przez pgcrypto (bcrypt, koszt 10). Hash hasła nie
-opuszcza bazy. Zalogowanie daje losowy token ważny 7 dni; baza przechowuje jego digest.
+opuszcza bazy. Token jest ważny 180 dni dla uczestnika i 7 dni dla admina;
+baza przechowuje jego digest.
 Po 5 nieudanych próbach konto jest blokowane na 15 minut. Admin może zresetować hasło
 i blokadę. PoC nie implementuje globalnego ograniczania liczby wywołań API.
 
