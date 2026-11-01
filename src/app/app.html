@@ -33,9 +33,7 @@
 <main>
   @if (loading()) {
   <p role="status">Wczytywanie…</p>
-  } @else { @if (api.demo && ready()) {
-  <p class="demo-banner">Tryb demo — dane tylko w tej przeglądarce.</p>
-  } @if (!data()) {
+  } @else { @if (!data()) {
   <section class="auth-card card">
     @if (authView() === 'invitation') {
     <h1>Rejestracja</h1>
@@ -57,9 +55,6 @@
         {{ busy() ? 'Sprawdzanie…' : 'Dalej' }}
       </button>
     </form>
-    @if (api.demo) {
-    <p class="help">Hasło demo: SyloeDemo!</p>
-    }
     <button class="text-button" (click)="backToLogin()" [disabled]="busy()">
       Wróć do logowania
     </button>
@@ -169,16 +164,7 @@
     >
       Nie masz konta? Zarejestruj się
     </button>
-    @if (api.demo && ready()) {
-    <div class="demo-accounts">
-      <button class="secondary" (click)="demoLogin(false)" [disabled]="busy()">
-        Demo: uczestnik
-      </button>
-      <button class="secondary" (click)="demoLogin(true)" [disabled]="busy()">
-        Demo: admin
-      </button>
-    </div>
-    } } @if (error() && retryAvailable()) {<button
+    } @if (error() && retryAvailable()) {<button
       class="secondary retry"
       (click)="retry()"
       [disabled]="busy()"
@@ -211,14 +197,6 @@
       [disabled]="busy()"
     >
       Nowe spotkanie
-    </button>
-    <button
-      (click)="changeView('archive')"
-      [class.active]="view() === 'archive'"
-      [attr.aria-current]="view() === 'archive' ? 'page' : null"
-      [disabled]="busy()"
-    >
-      Archiwum
     </button>
   </nav>
   } @if (view() === 'create') {
@@ -266,48 +244,27 @@
   } @else {
   <div class="page-heading">
     <h1>
-      {{ view() === 'order' ? 'Zapis na spotkanie' : view() === 'archive' ?
-      'Archiwum' : 'Spotkania' }}
+      {{ view() === 'order' ? 'Zapis na spotkanie' : 'Spotkania' }}
     </h1>
     <button class="secondary" (click)="refresh()" [disabled]="busy()">
       Odśwież
     </button>
   </div>
-  @if (view() === 'order' && visibleMeetings().length) { @if (meeting();
+  @if (visibleMeetings().length === 1) { @if (meeting();
   as item) {
   <section class="single-meeting card" aria-label="Wybrane spotkanie">
-    <div class="meeting-summary" aria-live="polite" aria-atomic="true">
-      <p class="meeting-subtitle">{{ meetingIndex() === 0 ? 'Najbliższe spotkanie' : 'Wybrane spotkanie' }}</p>
+      <p class="meeting-subtitle">Najbliższe spotkanie</p>
       <time [attr.datetime]="item.startsAt"
         >{{ date(item.startsAt) }}<strong>{{ time(item.startsAt) }}</strong></time
       >
       <span>{{ item.name }}</span>
-    </div>
-    @if (visibleMeetings().length > 1) {
-    <nav class="meeting-navigation" aria-label="Przejdź do innego spotkania">
-      <button class="secondary" (click)="moveMeeting(-1)" [disabled]="busy() || meetingIndex() <= 0">← Poprzednie</button>
-      <button class="secondary" (click)="moveMeeting(1)" [disabled]="busy() || meetingIndex() >= futureMeetings().length - 1">Kolejne →</button>
-    </nav>
-    <button class="text-button meeting-picker-toggle" (click)="showMeetingPicker.set(!showMeetingPicker())" [attr.aria-expanded]="showMeetingPicker()" aria-controls="meeting-picker" [disabled]="busy()">{{ showMeetingPicker() ? 'Ukryj terminy' : 'Wybierz termin' }}</button>
-    <div id="meeting-picker" [hidden]="!showMeetingPicker()">
-      <div class="meeting-picker-list" role="group" aria-label="Wszystkie przyszłe spotkania">
-        @for (option of futureMeetings(); track option.id) {
-        <button class="meeting-choice" [class.selected]="item.id === option.id" [attr.aria-pressed]="item.id === option.id" (click)="selectMeeting(option.id)" [disabled]="busy()">
-          <time [attr.datetime]="option.startsAt">{{ date(option.startsAt) }}<strong>{{ time(option.startsAt) }}</strong></time>
-          <span>{{ option.name }}</span>
-        </button>
-        }
-      </div>
-    </div>
-    }
   </section>
   } } @else if (visibleMeetings().length) {
   <div
     class="meeting-list"
-    [class.admin-list]="view() !== 'order'"
-    [attr.aria-label]="view() === 'archive' ? 'Zakończone spotkania' : 'Wybierz spotkanie'"
+    aria-label="Wybierz spotkanie"
   >
-    @for (item of visibleMeetings(); track item.id) {
+    @for (item of visibleMeetings(); track item.id; let first = $first) {
     <button
       class="meeting-choice"
       [class.selected]="meeting()?.id === item.id"
@@ -315,6 +272,7 @@
       (click)="selectMeeting(item.id)"
       [disabled]="busy()"
     >
+      <span class="meeting-subtitle">{{ first ? 'Najbliższe spotkanie' : 'Kolejne spotkanie' }}</span>
       <time [attr.datetime]="item.startsAt"
         >{{ date(item.startsAt) }}<strong
           >{{ time(item.startsAt) }}</strong
@@ -325,10 +283,7 @@
     }
   </div>
   } @else {
-  <p class="card empty">
-    {{ view() === 'archive' ? 'Brak zakończonych spotkań.' : 'Brak nadchodzących
-    spotkań.' }}
-  </p>
+  <p class="card empty">Brak nadchodzących spotkań.</p>
   } @if (view() === 'order') { @if (meeting()) {
   <fieldset class="coffee-fieldset" [disabled]="busy() || isClosed(meeting())">
     <legend>Wybierz kawę lub herbatę</legend>
@@ -403,9 +358,6 @@
   >} } @if (meeting(); as item) {
   <section class="card orders-card">
     <h2>{{ item.name }}</h2>
-    @if (view() === 'archive') {
-    <p class="muted">Zapisy zakończone</p>
-    }
     <div class="totals">
       <div><strong>{{ meetingOrders().length }}</strong><span>Odpowiedzi</span></div>
       @for (total of totals(); track total.name) {

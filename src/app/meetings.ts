@@ -6,11 +6,6 @@ export function upcomingMeetings(
 ): Meeting[] {
   return meetings
     .filter((meeting) => Date.parse(meeting.startsAt) > now)
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-}
-
-export function archivedMeetings(meetings: Meeting[], now: number): Meeting[] {
-  return meetings
-    .filter((meeting) => Date.parse(meeting.startsAt) <= now)
-    .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt));
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+    .slice(0, 2);
 }

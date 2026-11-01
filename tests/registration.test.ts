@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { DemoStore } from "../src/app/demo-store";
 
 test(
   "registration SQL: secret gate, direct API protection, unique names and secret rotation",
@@ -205,45 +204,3 @@ test(
     }
   },
 );
-
-test("demo registration: gate required, normal account, uniqueness for overlapping requests", async () => {
-  const values = new Map<string, string>();
-  const store = new DemoStore({
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => {
-      values.set(key, value);
-    },
-  });
-  await store.init();
-  assert.throws(
-    () => store.checkRegistrationPassword("wrong"),
-    /hasło rejestracji/,
-  );
-  await assert.rejects(
-    store.register("wrong", "Marta", "Nowak", "MyPass123!"),
-    /hasło rejestracji/,
-  );
-  store.checkRegistrationPassword("SyloeDemo!");
-  const results = await Promise.allSettled([
-    store.register("SyloeDemo!", "Marta", "Nowak", "MyPass123!"),
-    store.register("SyloeDemo!", " MARTA ", "nowak ", "MyPass123!"),
-  ]);
-  assert.equal(
-    results.filter((result) => result.status === "fulfilled").length,
-    1,
-  );
-  assert.equal(
-    results.filter((result) => result.status === "rejected").length,
-    1,
-  );
-  const session = await store.login("marta", "nowak", "MyPass123!");
-  assert.equal(session.user.isAdmin, false);
-  const admin = await store.login("Jan", "Kowalski", "Kawa123!");
-  await assert.rejects(
-    store.createUser(admin.token, "Marta", "Nowak", "MyPass123!"),
-    /już istnieje/,
-  );
-  const persisted = JSON.stringify([...values.values()]);
-  assert.ok(!persisted.includes("MyPass123!"));
-  assert.ok(!persisted.includes("SyloeDemo!"));
-});

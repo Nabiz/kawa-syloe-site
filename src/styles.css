@@ -166,21 +166,6 @@ small {
 .help {
   margin: 14px 0;
 }
-.demo-banner {
-  margin: 0 0 18px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: #eaf0e3;
-  color: #405a37;
-  font-size: 13px;
-}
-.demo-accounts {
-  display: flex;
-  gap: 8px;
-  margin-top: 20px;
-  border-top: 1px solid var(--line);
-  padding-top: 16px;
-}
 .inline-error {
   color: #8d2020;
   background: #fff0ee;
@@ -267,11 +252,6 @@ small {
   gap: 12px;
   margin-bottom: 22px;
 }
-.meeting-list.admin-list {
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 4px;
-}
 .meeting-choice {
   display: flex;
   flex-direction: column;
@@ -301,7 +281,7 @@ time strong {
   color: var(--green);
 }
 .meeting-choice > span,
-.meeting-summary > span {
+.single-meeting > span {
   color: var(--muted);
   font-size: 15px;
 }
@@ -312,31 +292,10 @@ time strong {
   margin-bottom: 22px;
   border-left: 4px solid var(--green);
 }
-.meeting-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
 .meeting-subtitle {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
-}
-.meeting-navigation {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
-}
-.meeting-picker-toggle {
-  align-self: center;
-}
-.meeting-picker-list {
-  display: grid;
-  gap: 8px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding: 4px;
 }
 .coffee-fieldset {
   border: 0;
@@ -493,9 +452,6 @@ th {
     gap: 8px;
     margin-bottom: 16px;
   }
-  .meeting-list.admin-list {
-    max-height: 260px;
-  }
   .meeting-choice {
     padding: 12px;
   }
@@ -521,8 +477,5 @@ th {
   }
   .tabs button {
     flex: 1 1 calc(50% - 6px);
-  }
-  .demo-accounts > button {
-    flex: 1;
   }
 }

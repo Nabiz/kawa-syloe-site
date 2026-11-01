@@ -19,31 +19,20 @@ npm start
 
 Otwórz adres wyświetlony przez Angular CLI, zwykle http://127.0.0.1:4200.
 
-Bez konfiguracji Supabase aplikacja uruchamia **tryb demo**. Dane demo są zapisane
-wyłącznie w localStorage tej przeglądarki. Nie są wysyłane do żadnej bazy.
-
-| Imię | Nazwisko | Hasło | Dostęp |
-| --- | --- | --- | --- |
-| Anna | Nowak | Kawa123! | Uczestnik |
-| Jan | Kowalski | Kawa123! | Admin |
-| Marek | Wiśniewski | Kawa123! | Uczestnik |
-
-Przyciski na ekranie logowania pozwalają wejść na konta Anna i Jan jednym kliknięciem.
-Reset danych demo: usuń wpis `kawa-syloe.demo.v1` oraz wpis sesji demo z localStorage,
-a potem odśwież stronę. Tryb demo służy do sprawdzenia interfejsu; nie zabezpiecza
-danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim prawdziwych haseł.
+Aplikacja wymaga połączenia z Supabase. Przed uruchomieniem uzupełnij lokalny
+`public/config.json` zgodnie z instrukcją poniżej. Brak konfiguracji wyświetla błąd.
 
 ## Co można sprawdzić
 
 - Logowanie imieniem, nazwiskiem i hasłem, bez maila, telefonu i osobnego loginu.
 - Samodzielna rejestracja po podaniu wspólnego hasła od admina.
-- Najbliższe spotkanie z widoczną datą i godziną oraz dostęp do wszystkich przyszłych terminów.
+- Dwa najbliższe przyszłe spotkania z widoczną datą i godziną.
 - Wybór napoju z menu ustalonego przez admina i trwałe potwierdzenie zapisu.
 - Wybór „Inna (daj znać po spotkaniu)” bez zamawiania z wyprzedzeniem.
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień po rozpoczęciu spotkania.
 - Panel admina: liczba odpowiedzi oraz liczba wyborów każdej pozycji z formularza.
-- Oddzielne widoki admina: Spotkania, Nowe spotkanie i Archiwum.
+- Oddzielne widoki admina: Spotkania i Nowe spotkanie, bez archiwum.
 - Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
 
@@ -66,11 +55,11 @@ danych przed osobą mającą dostęp do tej przeglądarki. Nie używaj w nim pra
 }
 ```
 
-6. Odśwież aplikację. Pasek „Tryb demo” zniknie. Zaloguj się na konto admina,
-   dodaj spotkanie i użytkowników. Dane demonstracyjne nie są przenoszone do Supabase.
+6. Odśwież aplikację, zaloguj się na konto admina i dodaj spotkanie.
+   Uczestnicy tworzą konta przez formularz rejestracji na zaproszenie.
 
 `public/config.json` jest pomijany przez Git. W repozytorium zostaje wyłącznie pusty
-wzór `public/config.example.json`. Brak konfiguracji uruchamia tryb demo.
+wzór `public/config.example.json`. Konfiguracja Supabase jest wymagana.
 
 Publiczny klucz będzie dostępny w opublikowanej statycznej stronie; `.gitignore`
 chroni przed zapisaniem go w repozytorium, nie ukrywa go w przeglądarce.
@@ -113,9 +102,6 @@ Wspólne hasło ogranicza rejestrację do osób, które je znają. Osoba posiada
 hasło nadal może tworzyć wiele różnych kont; nie jest to limit liczby rejestracji
 ani zabezpieczenie przed przeciążaniem publicznego API.
 
-W trybie demo publiczne hasło rejestracji to **`SyloeDemo!`**. Służy tylko do
-sprawdzenia interfejsu; nie jest hasłem używanym w Supabase.
-
 Dokumentacja Vault: https://supabase.com/docs/guides/database/vault.
 
 ### Katalog napojów i menu spotkania — aktualizacja bazy
@@ -145,8 +131,7 @@ Historyczne rodzaje są nieaktywne dla nowych menu, ale nadal widoczne przy
 wcześniejszych zamówieniach. Stare spotkania otrzymują cztery nowe opcje oraz typy
 wcześniej na nich zamówione. Ponowne uruchomienie migracji nie rozszerza menu nowych
 spotkań. Katalog i powiązania są udostępniane przez `coffee_state`, bez nowych
-requestów do API przy wyświetlaniu menu. Lokalne demo aktualizuje stare dane bez
-usuwania kont i zapisów.
+requestów do API przy wyświetlaniu menu.
 
 Katalog `supabase/` nadal jest ignorowany przez Git — migrację zachowaj lokalnie
 i wykonaj w SQL Editor, nie jest automatycznie wdrażana przez GitHub Actions.
@@ -165,13 +150,14 @@ przywraca wygasłych sesji i nie wydłuża ich ponownie przy powtórnym wykonani
 Wylogowanie i reset hasła nadal usuwają sesje w bazie. Wyczyszczenie danych
 przeglądarki wymaga ponownego logowania.
 
-Uczestnik domyślnie widzi najbliższe przyszłe spotkanie. Przyciski Poprzednie i Kolejne
-pozwalają przechodzić między terminami, a „Wybierz termin” rozwija listę wszystkich
-przyszłych spotkań bez limitu ich liczby. Przy jednym spotkaniu nawigacja jest ukryta.
-Po przełączeniu daty wczytywane są menu i zapis użytkownika dla wybranego spotkania.
-Zakończone spotkania są dostępne w Archiwum admina.
-Archiwizacja wynika z godziny rozpoczęcia: bez kasowania danych ani osobnej tabeli.
-Lokalny zegar odświeża podział co 30 sekund, bez dodatkowych requestów do API.
+Uczestnik i admin widzą tylko dwa najbliższe przyszłe spotkania, oznaczone jako
+„Najbliższe spotkanie” i „Kolejne spotkanie”. Domyślnie wybrane jest najbliższe.
+Przy jednym spotkaniu data i menu wyświetlają się bez dodatkowego wyboru.
+Po rozpoczęciu spotkanie znika, a jego miejsce zajmuje następny przyszły termin.
+Podział aktualizuje się co 30 sekund, bez dodatkowych requestów do API.
+Widok archiwum jest usunięty; wcześniejsze spotkania i zapisy pozostają w bazie.
+Nowe terminy można tworzyć z dowolnym wyprzedzeniem, ale pojawią się w widoku
+dopiero wtedy, gdy będą jednym z dwóch najbliższych spotkań.
 
 Potwierdzony wybór pozostaje przy przycisku zapisu, a niezapisana zmiana ma osobne
 oznaczenie. Powiadomienia są przypięte do ekranu. Sukces znika po 7 sekundach,
@@ -247,7 +233,7 @@ npm run build:pages
 ```
 
 Testy wykonują właściwy skrypt SQL na lokalnym PostgreSQL w WebAssembly (PGlite)
-oraz sprawdzają tryb demo i przeliczanie czasu. Nie wymagają konta Supabase ani
+oraz sprawdzają wybór spotkań, stan interfejsu, konfigurację API i przeliczanie czasu. Nie wymagają konta Supabase ani
 działającego serwera. Test rejestracji wykonuje migrację SQL i sprawdza uprawnienia,
 unikalność, wymaganie wspólnego hasła i jego zmianę. Interfejs SQL Vault jest w nim
 odwzorowany lokalnie, bez rozszerzenia szyfrującego Supabase. Testy nie zastępują
@@ -258,9 +244,9 @@ się wykonują. Publikowanie frontendu nie wymaga dostępu do skryptów ani dany
 ## Gdzie szukać kodu
 
 - `src/app/app.ts` i `app.html`: ekrany, formularze i stan interfejsu.
-- `src/app/coffee.service.ts`: wywołania API i przełączanie demo/Supabase.
-- `src/app/demo-store.ts`: dane przykładowe do lokalnego PoC.
-- `src/app/models.ts`: modele i lista kaw.
+- `src/app/coffee.service.ts`: konfiguracja Supabase i wywołania API.
+- `src/app/meetings.ts`: wybór dwóch najbliższych przyszłych spotkań.
+- `src/app/models.ts`: modele danych; katalog kaw pochodzi z Supabase.
 - `src/styles.css`: responsywny wygląd.
 - `supabase/schema.sql`: tabele, uprawnienia i funkcje API.
 - `supabase/migrations/20261021_registration.sql`: rejestracja i weryfikacja sekretu Vault.

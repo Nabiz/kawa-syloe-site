@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
-import { DemoStore } from "../src/app/demo-store";
 import type { State } from "../src/app/models";
 
 const attendance = "Inna (daj znać po spotkaniu)";
@@ -193,71 +192,3 @@ test(
     }
   },
 );
-
-test("demo: selected menu and attendance survive reload, previous data is migrated", async () => {
-  const values = new Map<string, string>();
-  const storage = {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      values.set(key, value);
-    },
-  };
-  const store = new DemoStore(storage);
-  await store.init();
-  const admin = await store.login("Jan", "Kowalski", "Kawa123!");
-  const anna = await store.login("Anna", "Nowak", "Kawa123!");
-  const date = new Date(Date.now() + 86400000).toISOString();
-  assert.throws(
-    () => store.createMeeting(anna.token, "Nie", date, ["Czarna"]),
-    /admina/,
-  );
-  assert.throws(
-    () => store.createMeeting(admin.token, "Nie", date, ["Invalid"]),
-    /listy/,
-  );
-  store.createMeeting(admin.token, "Menu testowe", date, ["Herbata Zimowa"]);
-  const meeting = store
-    .state(admin.token)
-    .meetings.find((m) => m.name === "Menu testowe")!;
-  assert.deepEqual(meeting.coffeeTypes, ["Herbata Zimowa", attendance]);
-  assert.throws(
-    () => store.saveOrder(anna.token, meeting.id, "Czarna"),
-    /dostępny/,
-  );
-  store.saveOrder(anna.token, meeting.id, attendance);
-  store.saveOrder(admin.token, meeting.id, "Herbata Zimowa");
-  const reload = new DemoStore(storage);
-  await reload.init();
-  assert.equal(
-    reload.state(admin.token).orders.filter((o) => o.meetingId === meeting.id)
-      .length,
-    2,
-  );
-  assert.equal(
-    reload.state(anna.token).orders.filter((o) => o.meetingId === meeting.id)[0]
-      .coffeeType,
-    attendance,
-  );
-  store.createMeeting(admin.token, "Bez napojów", date, []);
-  assert.deepEqual(
-    store.state(admin.token).meetings.find((m) => m.name === "Bez napojów")
-      ?.coffeeTypes,
-    [attendance],
-  );
-  // Simulate the previous demo shape without the catalogue/menu fields.
-  const key = [...values.keys()][0];
-  const legacy = JSON.parse(values.get(key)!);
-  delete legacy.coffeeTypes;
-  legacy.meetings.forEach((m: any) => delete m.coffeeTypes);
-  legacy.orders[0].coffeeType = "Cappuccino";
-  values.set(key, JSON.stringify(legacy));
-  const upgraded = new DemoStore(storage);
-  await upgraded.init();
-  assert.equal(upgraded.state(admin.token).orders[0].coffeeType, "Cappuccino");
-  assert.ok(
-    upgraded
-      .state(admin.token)
-      .coffeeTypes.some((c) => c.name === "Cappuccino" && !c.active),
-  );
-  assert.equal(upgraded.state(admin.token).users.length, 3);
-});

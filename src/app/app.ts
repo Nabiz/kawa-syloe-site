@@ -9,10 +9,10 @@ import {
 import { FormsModule } from "@angular/forms";
 import { CoffeeService } from "./coffee.service";
 import type { Meeting, State } from "./models";
-import { archivedMeetings, upcomingMeetings } from "./meetings";
+import { upcomingMeetings } from "./meetings";
 import { warsawDateTimeToIso } from "./time";
 
-type View = "order" | "meetings" | "create" | "archive";
+type View = "order" | "meetings" | "create";
 type Action =
   | "init"
   | "login"
@@ -45,25 +45,13 @@ export class App implements OnInit, OnDestroy {
   readonly authView = signal<"login" | "invitation" | "register">("login");
   readonly meetingId = signal("");
   readonly selectedCoffee = signal("");
-  readonly showMeetingPicker = signal(false);
-  readonly futureMeetings = computed(() =>
-    upcomingMeetings(this.data()?.meetings ?? [], this.now()),
-  );
-  readonly pastMeetings = computed(() =>
-    archivedMeetings(this.data()?.meetings ?? [], this.now()),
-  );
   readonly visibleMeetings = computed(() =>
-    this.view() === "archive"
-      ? this.pastMeetings()
-      : this.futureMeetings(),
+    upcomingMeetings(this.data()?.meetings ?? [], this.now()),
   );
   readonly meeting = computed<Meeting | undefined>(
     () =>
       this.visibleMeetings().find((m) => m.id === this.meetingId()) ??
       this.visibleMeetings()[0],
-  );
-  readonly meetingIndex = computed(() =>
-    this.futureMeetings().findIndex((item) => item.id === this.meeting()?.id),
   );
   readonly coffees = computed(
     () =>
@@ -173,17 +161,10 @@ export class App implements OnInit, OnDestroy {
     this.selectMeeting(this.meeting()?.id ?? "");
   }
   selectMeeting(id: string): void {
+    if (id && !this.visibleMeetings().some((meeting) => meeting.id === id)) return;
     this.meetingId.set(id);
-    this.showMeetingPicker.set(false);
     this.selectedCoffee.set(this.savedCoffee() ?? "");
     this.clearFeedback();
-  }
-  moveMeeting(direction: -1 | 1): void {
-    if (this.busy()) return;
-    const index = this.meetingIndex();
-    if (index < 0) return;
-    const next = this.futureMeetings()[index + direction];
-    if (next) this.selectMeeting(next.id);
   }
   chooseCoffee(name: string): void {
     this.selectedCoffee.set(name);
@@ -294,12 +275,6 @@ export class App implements OnInit, OnDestroy {
       this.notify("Konto zostało utworzone. Zaloguj się swoim hasłem.");
     });
   }
-  demoLogin(admin: boolean): void {
-    this.firstName = admin ? "Jan" : "Anna";
-    this.lastName = admin ? "Kowalski" : "Nowak";
-    this.password = "Kawa123!";
-    void this.login();
-  }
   async logout(): Promise<void> {
     await this.run("logout", async () => {
       await this.api.logout();
@@ -368,8 +343,11 @@ export class App implements OnInit, OnDestroy {
       try {
         const state = await this.api.state();
         this.setState(state);
-        const added = state.meetings.find((m) => !previousIds.has(m.id));
-        if (added) this.meetingId.set(added.id);
+        const added = this.visibleMeetings().find((m) => !previousIds.has(m.id));
+        if (added) {
+          this.meetingId.set(added.id);
+          this.selectedCoffee.set(this.savedCoffee() ?? "");
+        }
       } catch (error) {
         this.showError(
           new Error(
