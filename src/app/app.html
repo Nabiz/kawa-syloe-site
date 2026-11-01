@@ -4,9 +4,9 @@
   </a>
   @if (data(); as state) {
   <div class="account">
-    <span>{{ state.user.firstName }} {{ state.user.lastName }}</span>
+    <span>{{ state.user.firstName }} {{ state.user.lastName }}{{ state.user.isGuest ? ' (gość)' : '' }}</span>
     <button class="text-button" (click)="logout()" [disabled]="busy()">
-      Wyloguj
+      {{ state.user.isGuest ? 'Wyjdź' : 'Wyloguj' }}
     </button>
   </div>
   }
@@ -35,7 +35,18 @@
   <p role="status">Wczytywanie…</p>
   } @else { @if (!data()) {
   <section class="auth-card card">
-    @if (authView() === 'invitation') {
+    @if (authView() === 'guest') {
+    <h1>Zamów jako gość</h1>
+    <form (ngSubmit)="enterGuest()">
+      <label>Jak mamy Cię zawołać?<input
+        name="guestName" [(ngModel)]="guestName" autocomplete="given-name"
+        required maxlength="80" [disabled]="busy() || !ready()"
+      /></label>
+      @if (error()) { <p class="inline-error">{{ error() }}</p> }
+      <button class="primary" type="submit" [disabled]="busy() || !ready()">{{ busy() ? 'Wczytywanie…' : 'Dalej' }}</button>
+    </form>
+    <button class="text-button" (click)="backToLogin()" [disabled]="busy()">Wróć do logowania</button>
+    } @else if (authView() === 'invitation') {
     <h1>Rejestracja</h1>
     <form (ngSubmit)="unlockRegistration()">
       <label
@@ -156,6 +167,7 @@
         {{ busy() ? 'Logowanie…' : 'Zaloguj się' }}
       </button>
     </form>
+    <button class="secondary guest-entry" (click)="openGuest()" [disabled]="busy() || !ready()">Zamów jako gość</button>
     <p class="help">Nie pamiętasz hasła? Poproś admina o reset.</p>
     <button
       class="text-button"
@@ -253,7 +265,7 @@
   @if (visibleMeetings().length === 1) { @if (meeting();
   as item) {
   <section class="single-meeting card" aria-label="Wybrane spotkanie">
-      <p class="meeting-subtitle">Najbliższe spotkanie</p>
+      <p class="meeting-subtitle">{{ meetingLabel(item) }}</p>
       <time [attr.datetime]="item.startsAt"
         >{{ date(item.startsAt) }}<strong>{{ time(item.startsAt) }}</strong></time
       >
@@ -272,7 +284,7 @@
       (click)="selectMeeting(item.id)"
       [disabled]="busy()"
     >
-      <span class="meeting-subtitle">{{ first ? 'Najbliższe spotkanie' : 'Kolejne spotkanie' }}</span>
+      <span class="meeting-subtitle">{{ meetingLabel(item, first) }}</span>
       <time [attr.datetime]="item.startsAt"
         >{{ date(item.startsAt) }}<strong
           >{{ time(item.startsAt) }}</strong
@@ -285,6 +297,7 @@
   } @else {
   <p class="card empty">Brak nadchodzących spotkań.</p>
   } @if (view() === 'order') { @if (meeting()) {
+  @if (isClosed(meeting())) { <p class="inline-error">Zamówienia na to spotkanie są zamknięte.</p> }
   <fieldset class="coffee-fieldset" [disabled]="busy() || isClosed(meeting())">
     <legend>Wybierz kawę lub herbatę</legend>
     <div class="coffee-grid">
@@ -376,7 +389,7 @@
         <tbody>
           @for (order of meetingOrders(); track order.id) {
           <tr>
-            <td>{{ person(order.userId) }}</td>
+            <td>{{ order.guestName ? order.guestName + ' (gość)' : person(order.userId) }}</td>
             <td>
               {{ order.coffeeType }}
             </td>

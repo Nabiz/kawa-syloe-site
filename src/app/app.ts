@@ -7,9 +7,9 @@ import {
   signal,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { CoffeeService } from "./coffee.service";
+import { CoffeeService, sessionExpired } from "./coffee.service";
 import type { Meeting, State } from "./models";
-import { upcomingMeetings } from "./meetings";
+import { meetingStatus, upcomingMeetings } from "./meetings";
 import { warsawDateTimeToIso } from "./time";
 
 type View = "order" | "meetings" | "create";
@@ -18,6 +18,7 @@ type Action =
   | "login"
   | "invitation"
   | "register"
+  | "guest"
   | "save"
   | "cancel"
   | "create"
@@ -42,12 +43,15 @@ export class App implements OnInit, OnDestroy {
   readonly feedbackClosed = signal(false);
   readonly action = signal<Action>("init");
   readonly view = signal<View>("order");
-  readonly authView = signal<"login" | "invitation" | "register">("login");
+  readonly authView = signal<"login" | "invitation" | "register" | "guest">("login");
   readonly meetingId = signal("");
   readonly selectedCoffee = signal("");
-  readonly visibleMeetings = computed(() =>
-    upcomingMeetings(this.data()?.meetings ?? [], this.now()),
-  );
+  readonly visibleMeetings = computed(() => {
+    const state = this.data();
+    return state?.user.isGuest
+      ? state.meetings.filter((meeting) => meeting.id === state.guest?.meetingId).slice(0, 1)
+      : upcomingMeetings(state?.meetings ?? [], this.now());
+  });
   readonly meeting = computed<Meeting | undefined>(
     () =>
       this.visibleMeetings().find((m) => m.id === this.meetingId()) ??
@@ -106,6 +110,7 @@ export class App implements OnInit, OnDestroy {
   firstName = "";
   lastName = "";
   password = "";
+  guestName = "";
   registrationPassword = "";
   registrationFirstName = "";
   registrationLastName = "";
@@ -133,6 +138,11 @@ export class App implements OnInit, OnDestroy {
   }
   private updateClock(): void {
     this.now.set(Date.now());
+    const expiry = this.data()?.guest?.expiresAt;
+    if (expiry && Date.parse(expiry) <= this.now()) {
+      this.showError(new Error("Sesja gościa wygasła."), "refresh");
+      return;
+    }
     const id = this.meeting()?.id ?? "";
     if (this.view() !== "create" && id !== this.meetingId())
       this.selectMeeting(id);
@@ -171,7 +181,11 @@ export class App implements OnInit, OnDestroy {
     this.clearFeedback();
   }
   isClosed(meeting?: Meeting): boolean {
-    return !!meeting && Date.parse(meeting.startsAt) <= this.now();
+    return !!meeting && meetingStatus(meeting, this.now()) === "finished";
+  }
+  meetingLabel(meeting: Meeting, first = true): string {
+    const status = meetingStatus(meeting, this.now());
+    return status === "ongoing" ? "W trakcie" : status === "finished" ? "Zakończone" : first ? "Najbliższe spotkanie" : "Kolejne spotkanie";
   }
   date(value: string): string {
     return new Intl.DateTimeFormat("pl-PL", {
@@ -211,6 +225,19 @@ export class App implements OnInit, OnDestroy {
       );
       this.password = "";
       this.clearRegistration();
+    });
+  }
+  openGuest(): void {
+    this.clearRegistration();
+    this.password = "";
+    this.guestName = "";
+    this.clearFeedback();
+    this.authView.set("guest");
+  }
+  async enterGuest(): Promise<void> {
+    await this.run("guest", async () => {
+      this.view.set("order");
+      this.setState(await this.api.enterGuest(this.guestName));
     });
   }
   private clearRegistration(): void {
@@ -281,6 +308,8 @@ export class App implements OnInit, OnDestroy {
       this.data.set(null);
       this.confirmedWrites.set({});
       this.password = "";
+      this.guestName = "";
+      this.clearRegistration();
       this.meetingId.set("");
       this.view.set("order");
     });
@@ -296,7 +325,7 @@ export class App implements OnInit, OnDestroy {
       const id = this.meeting()?.id;
       const coffee = this.selectedCoffee();
       if (!id || this.isClosed(this.meeting()))
-        throw new Error("Wybierz przyszłe spotkanie.");
+        throw new Error("Zamówienia na to spotkanie są zamknięte.");
       if (!coffee) throw new Error("Wybierz kawę lub herbatę.");
       await this.api.saveOrder(id, coffee);
       this.confirmedWrites.update((values) => ({ ...values, [id]: coffee }));
@@ -308,6 +337,7 @@ export class App implements OnInit, OnDestroy {
     await this.run("cancel", async () => {
       const id = this.meeting()?.id;
       if (!id) return;
+      if (this.isClosed(this.meeting())) throw new Error("Zamówienia na to spotkanie są zamknięte.");
       await this.api.deleteOrder(id);
       this.confirmedWrites.update((values) => ({ ...values, [id]: null }));
       this.selectedCoffee.set("");
@@ -396,9 +426,10 @@ export class App implements OnInit, OnDestroy {
     this.feedbackClosed.set(false);
     this.retryAction = retry;
     this.retryAvailable.set(!!retry);
-    if (this.error().includes("Sesja wygasła")) {
+    if (sessionExpired(error)) {
       this.api.clearSession();
       this.data.set(null);
+      this.authView.set("login");
       this.confirmedWrites.set({});
       this.retryAvailable.set(false);
       this.retryAction = undefined;
@@ -417,7 +448,7 @@ export class App implements OnInit, OnDestroy {
       const retry =
         action === "init"
           ? () => this.load()
-          : action === "save"
+          : action === "save" && this.message(error) !== "Osiągnięto limit zamówień gości"
             ? () => this.saveOrder()
             : action === "cancel"
               ? () => this.cancelOrder()

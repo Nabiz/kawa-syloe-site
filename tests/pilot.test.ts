@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { App } from "../src/app/app";
 import { CoffeeService } from "../src/app/coffee.service";
-import { upcomingMeetings } from "../src/app/meetings";
+import { MEETING_DURATION_MS, meetingStatus, upcomingMeetings } from "../src/app/meetings";
 import type { Meeting, State } from "../src/app/models";
 import { COFFEE_TYPES } from "./fixtures";
 
@@ -16,10 +16,11 @@ test("meetings: only two nearest future dates, past dates excluded, boundary and
     startsAt: new Date(now + (index - 60) * 86400000).toISOString(),
     coffeeTypes: [],
   })).reverse();
-  assert.deepEqual(upcomingMeetings(events, now).map((m) => m.id), ["61", "62"]);
-  assert.deepEqual(upcomingMeetings(events, now + 86400000).map((m) => m.id), ["62", "63"]);
-  assert.deepEqual(upcomingMeetings(events, now + 38 * 86400000).map((m) => m.id), ["99"]);
-  assert.deepEqual(upcomingMeetings(events, now + 39 * 86400000), []);
+  assert.deepEqual(upcomingMeetings(events, now).map((m) => m.id), ["60", "61"]);
+  assert.equal(meetingStatus(events.find((m) => m.id === "60")!, now), "ongoing");
+  assert.deepEqual(upcomingMeetings(events, now + MEETING_DURATION_MS).map((m) => m.id), ["61", "62"]);
+  assert.deepEqual(upcomingMeetings(events, now + 39 * 86400000).map((m) => m.id), ["99"]);
+  assert.deepEqual(upcomingMeetings(events, now + 39 * 86400000 + MEETING_DURATION_MS), []);
   assert.equal(events[0].id, "99");
 });
 
@@ -69,13 +70,13 @@ test("meeting selection: two dates in participant and admin views, own menu/orde
     await app.createMeeting();
     assert.equal(app.meetingId(), "0");
     assert.match(app.notice(), /Spotkanie zostało dodane/);
-    app.now.set(Date.parse(events[0].startsAt));
+    app.now.set(Date.parse(events[0].startsAt) + MEETING_DURATION_MS);
     assert.deepEqual(app.visibleMeetings().map((m) => m.id), ["1", "2"]);
     assert.equal(app.meeting()?.id, "1");
     state.meetings = [events[13]];
     await app.refresh();
     assert.equal(app.visibleMeetings().length, 1);
-    app.now.set(Date.parse(events[13].startsAt));
+    app.now.set(Date.parse(events[13].startsAt) + MEETING_DURATION_MS);
     assert.deepEqual(app.visibleMeetings(), []);
     assert.equal(app.meeting(), undefined);
   } finally {
@@ -184,4 +185,56 @@ test("UI state: preserve unsaved choice on failure, retry safely, retain acknowl
     app.ngOnDestroy();
     injector.destroy();
   }
+});
+
+test("guest UI: a single bound meeting, in-progress ordering and no switch to next after closure", async () => {
+  const now = Date.now();
+  const meeting: Meeting = {
+    id: "today", name: "Dzisiaj", startsAt: new Date(now - 3600000).toISOString(), coffeeTypes: ["Czarna"],
+  };
+  const guest: State = {
+    user: { id: "guest", firstName: "Ala", lastName: "", isAdmin: false, isGuest: true },
+    guest: { meetingId: "today", expiresAt: new Date(now + 12 * 3600000).toISOString() },
+    meetings: [meeting, { ...meeting, id: "next", startsAt: new Date(now + 86400000).toISOString() }],
+    coffeeTypes: structuredClone(COFFEE_TYPES), orders: [], users: [],
+  };
+  const writes: string[] = [];
+  let full = false;
+  const injector = Injector.create({ providers: [{ provide: CoffeeService, useValue: {
+    init: async () => null, enterGuest: async () => structuredClone(guest),
+    state: async () => structuredClone(guest), saveOrder: async (id: string) => {
+      if (full) throw new Error("Osiągnięto limit zamówień gości");
+      writes.push(id);
+    },
+    logout: async () => {},
+  } }] });
+  const app = runInInjectionContext(injector, () => new App());
+  try {
+    await app.ngOnInit();
+    app.openGuest();
+    app.guestName = "Ala";
+    await app.enterGuest();
+    assert.equal(app.meetingLabel(meeting), "W trakcie");
+    assert.equal(app.visibleMeetings().length, 1);
+    app.selectMeeting("next");
+    assert.equal(app.meeting()?.id, "today");
+    app.chooseCoffee("Czarna");
+    await app.saveOrder();
+    assert.deepEqual(writes, ["today"]);
+    full = true;
+    app.chooseCoffee("Czarna");
+    await app.saveOrder();
+    assert.equal(app.error(), "Osiągnięto limit zamówień gości");
+    assert.equal(app.retryAvailable(), false);
+    app.now.set(Date.parse(meeting.startsAt) + MEETING_DURATION_MS);
+    assert.equal(app.meeting()?.id, "today");
+    assert.equal(app.meetingLabel(meeting), "Zakończone");
+    await app.saveOrder();
+    assert.deepEqual(writes, ["today"]);
+    assert.match(app.error(), /zamknięte/);
+    await app.logout();
+    assert.equal(app.authView(), "login");
+    assert.equal(app.data(), null);
+    assert.equal(app.guestName, "");
+  } finally { app.ngOnDestroy(); injector.destroy(); }
 });

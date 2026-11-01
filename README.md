@@ -26,11 +26,12 @@ Aplikacja wymaga połączenia z Supabase. Przed uruchomieniem uzupełnij lokalny
 
 - Logowanie imieniem, nazwiskiem i hasłem, bez maila, telefonu i osobnego loginu.
 - Samodzielna rejestracja po podaniu wspólnego hasła od admina.
-- Dwa najbliższe przyszłe spotkania z widoczną datą i godziną.
+- Dwa najbliższe niezakończone spotkania z widoczną datą, godziną i statusem „W trakcie”.
+- Zamawianie jako gość: samo imię, jedno spotkanie, sesja 12 godzin, maksymalnie 10 gości.
 - Wybór napoju z menu ustalonego przez admina i trwałe potwierdzenie zapisu.
 - Wybór „Inna (daj znać po spotkaniu)” bez zamawiania z wyprzedzeniem.
 - Zapis, zmiana i anulowanie własnego zamówienia.
-- Zamknięcie zamówień po rozpoczęciu spotkania.
+- Zamknięcie zamówień 4 godziny po rozpoczęciu spotkania.
 - Panel admina: liczba odpowiedzi oraz liczba wyborów każdej pozycji z formularza.
 - Oddzielne widoki admina: Spotkania i Nowe spotkanie, bez archiwum.
 - Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
@@ -124,7 +125,7 @@ Zapis „Inna…” jest jednym wierszem w `coffee_orders`. Historyczna flaga
 `attendance_only = true` określa automatyczną dostępność tej opcji w menu.
 Statystyki pokazują liczbę odpowiedzi oraz wybory poszczególnych pozycji, w tym „Inna…”.
 Zmiana wyboru nadpisuje ten sam zapis, anulowanie usuwa zapis i zmniejsza liczbę odpowiedzi.
-Tak jak wcześniej, zmiany są możliwe tylko do rozpoczęcia spotkania.
+Zmiany są możliwe do 4 godzin po rozpoczęciu spotkania (po migracji `20261102_guests.sql`).
 
 Dotychczasowe spotkania i zamówienia są zachowane z oryginalnymi nazwami napojów.
 Historyczne rodzaje są nieaktywne dla nowych menu, ale nadal widoczne przy
@@ -150,10 +151,11 @@ przywraca wygasłych sesji i nie wydłuża ich ponownie przy powtórnym wykonani
 Wylogowanie i reset hasła nadal usuwają sesje w bazie. Wyczyszczenie danych
 przeglądarki wymaga ponownego logowania.
 
-Uczestnik i admin widzą tylko dwa najbliższe przyszłe spotkania, oznaczone jako
+Uczestnik i admin widzą tylko dwa najbliższe niezakończone spotkania, oznaczone jako
 „Najbliższe spotkanie” i „Kolejne spotkanie”. Domyślnie wybrane jest najbliższe.
 Przy jednym spotkaniu data i menu wyświetlają się bez dodatkowego wyboru.
-Po rozpoczęciu spotkanie znika, a jego miejsce zajmuje następny przyszły termin.
+Od rozpoczęcia spotkanie ma status „W trakcie”. Znika po 4 godzinach, a jego miejsce
+zajmuje następny termin. Status jest obliczany z daty i godziny; nie wymaga zadania cyklicznego.
 Podział aktualizuje się co 30 sekund, bez dodatkowych requestów do API.
 Widok archiwum jest usunięty; wcześniejsze spotkania i zapisy pozostają w bazie.
 Nowe terminy można tworzyć z dowolnym wyprzedzeniem, ale pojawią się w widoku
@@ -170,6 +172,43 @@ Formularze dodawania użytkownika i resetu hasła usunięto z panelu admina.
 Dotychczasowe funkcje w bazie zachowały kontrolę uprawnień. Framework, system
 logowania i hosting pozostały bez zmian.
 
+### Zamówienia gości i czterogodzinne spotkania — aktualizacja bazy
+
+Przed publikacją frontendu uruchom w SQL Editor Supabase lokalny plik
+**`supabase/migrations/20261102_guests.sql`**. Wymaga `schema.sql` i migracji
+`20261021_coffee_types.sql`. Na istniejącej bazie nie uruchamiaj ponownie `schema.sql`.
+Migracja zachowuje wcześniejsze konta, sesje, spotkania i zamówienia. Można ją powtórzyć.
+Skrypt pozostaje poza Gitem; GitHub Actions nie wykonuje go automatycznie.
+
+Na ekranie logowania „Zamów jako gość” otwiera pytanie „Jak mamy Cię zawołać?”.
+Po wpisaniu imienia gość widzi tylko najbliższe niezakończone spotkanie, i tylko
+w dniu jego rozpoczęcia według Europe/Warsaw. Nie wybiera dalszych dat.
+Imiona gości mogą się powtarzać. Menu, termin i limit są sprawdzane również w bazie.
+
+Samo otwarcie formularza nie tworzy danych w bazie. Pierwszy zapis tworzy jeden
+wiersz `coffee_private.guests` zawierający imię, powiązanie ze spotkaniem, wybór,
+digest tokenu oraz termin ważności sesji: 12 godzin od zapisu. Token jest losowany
+przez Web Crypto i zapamiętywany lokalnie przed wysłaniem zapisu. Ponowienie po
+zerwanym połączeniu używa tego samego tokenu i nie zajmuje kolejnego slotu.
+Token nie trafia do linku ani QR. Odpowiedź API nigdy nie ujawnia jego digestu.
+
+Każde spotkanie ma 10 slotów gości. Pierwszy zapis blokuje wiersz spotkania na czas
+sprawdzenia i zajęcia slotu. Ograniczenie `(meeting_id, slot)` oraz zakres slotów 1–10
+chronią limit także przy równoczesnych żądaniach. Anulowanie ustawia wybór na `null`,
+nie usuwa gościa. Wyjście i wygaśnięcie sesji też nie zwalniają slotu. Komunikat po
+wyczerpaniu limitu brzmi dokładnie „Osiągnięto limit zamówień gości”.
+
+W tej samej przeglądarce gość może wrócić do zapisu, zmienić wybór lub go anulować.
+Sesja nie przedłuża się przy zmianach ani odświeżaniu. Zakończenie spotkania blokuje
+zmiany, ale nie usuwa zamówienia. Po wygaśnięciu sesji dostęp do edycji znika;
+zamówienie pozostaje w bazie. Wyczyszczenie danych przeglądarki oznacza utratę dostępu.
+Admin widzi aktywne zamówienia gości we wspólnej tabeli z oznaczeniem „(gość)”
+i w tych samych podsumowaniach wyborów. Nie ma dodatkowej obsługi slotów przez admina.
+
+RPC gości: `coffee_guest_menu`, `coffee_guest_state`, `coffee_guest_save_order`,
+`coffee_guest_delete_order`, `coffee_guest_logout`. Dostęp do tabel i pomocniczych
+funkcji schematu `coffee_private` jest zablokowany dla publicznych ról.
+
 ### Tabele i API
 
 Tabele biznesowe, widoczne w Table Editor:
@@ -181,9 +220,9 @@ Tabele biznesowe, widoczne w Table Editor:
 - `coffee_types`: katalog napojów i oznaczenie automatycznie dostępnej opcji „Inna…”.
 - `coffee_meeting_types`: menu wybrane dla danego spotkania.
 
-W prywatnym schemacie `coffee_private` jest jedna techniczna tabela sesji.
+Prywatny schemat `coffee_private` zawiera sesje kont i rekordy gości.
 Hasła w Supabase są hashowane przez pgcrypto (bcrypt, koszt 10). Hash hasła nie
-opuszcza bazy. Token jest ważny 180 dni dla uczestnika i 7 dni dla admina;
+opuszcza bazy. Token konta jest ważny 180 dni dla uczestnika i 7 dni dla admina;
 baza przechowuje jego digest.
 Po 5 nieudanych próbach konto jest blokowane na 15 minut. Admin może zresetować hasło
 i blokadę. PoC nie implementuje globalnego ograniczania liczby wywołań API.
