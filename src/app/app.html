@@ -1,7 +1,14 @@
 <header class="header">
   <a class="brand" href="./" aria-label="Kawa Syloe — strona główna">
-    <img src="favicon.svg" alt="" width="28" height="28" />Kawa Syloe
+    <svg class="brand-icon" aria-hidden="true" width="28" height="28" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="18" fill="currentColor" />
+      <path d="M16 25h28v13a12 12 0 0 1-12 12h-4a12 12 0 0 1-12-12zm28 3h4a6 6 0 0 1 0 12h-4" fill="none" stroke="#f5eddb" stroke-width="4" />
+      <path d="M24 13v5m10-5v5" stroke="#f5eddb" stroke-width="3" stroke-linecap="round" />
+    </svg>Kawa Syloe
   </a>
+  <button type="button" class="secondary theme-toggle" [attr.aria-pressed]="coffeeTheme()" (click)="toggleTheme()">
+    <span class="theme-swatch" aria-hidden="true"></span>Motyw kawowy
+  </button>
   @if (data(); as state) {
   <div class="account">
     <span>{{ state.user.firstName }} {{ state.user.lastName }}{{ state.user.isGuest ? ' (gość)' : '' }}</span>
@@ -210,8 +217,56 @@
     >
       Nowe spotkanie
     </button>
+    <button
+      (click)="changeView('users')"
+      [class.active]="view() === 'users'"
+      [attr.aria-current]="view() === 'users' ? 'page' : null"
+      [disabled]="busy()"
+    >
+      Użytkownicy
+    </button>
   </nav>
-  } @if (view() === 'create') {
+  } @if (state.user.isAdmin && view() === 'users') {
+  <div class="page-heading">
+    <h1>Użytkownicy</h1>
+    <button class="secondary" (click)="refresh()" [disabled]="busy()">Odśwież</button>
+  </div>
+  <section class="card meeting-form">
+    @if (promotableUsers().length) {
+    <form (ngSubmit)="grantAdmin()">
+      <label>Wybierz użytkownika
+        <select name="userId" [ngModel]="selectedUserId()" (ngModelChange)="selectUser($event)"
+          [disabled]="busy() || confirmingAdmin()" required>
+          <option value="">Wybierz z listy</option>
+          @for (user of promotableUsers(); track user.id) {
+          <option [value]="user.id">{{ user.firstName }} {{ user.lastName }}</option>
+          }
+        </select>
+      </label>
+      @if (confirmingAdmin() && selectedUser(); as user) {
+      <p class="grant-confirmation" role="status">
+        Nadać uprawnienia administratora osobie <strong>{{ user.firstName }} {{ user.lastName }}</strong>?
+        Ta osoba będzie mieć pełny dostęp do panelu admina i musi zalogować się ponownie.
+      </p>
+      }
+      <div class="action-buttons">
+        <button class="primary" type="submit" [disabled]="busy() || !selectedUser() || retryAvailable()">
+          {{ busy() && action() === 'grantAdmin' ? 'Nadawanie…' : confirmingAdmin() ? 'Potwierdź nadanie' : 'Nadaj uprawnienia admina' }}
+        </button>
+        @if (confirmingAdmin()) {
+        <button class="secondary" type="button" (click)="selectUser(selectedUserId())" [disabled]="busy()">Anuluj</button>
+        }
+      </div>
+    </form>
+    } @else {
+    <p class="grant-confirmation">Brak użytkowników do awansowania.</p>
+    }
+    @if (error()) { <p class="inline-error grant-feedback">{{ error() }}</p> }
+    @if (retryAvailable()) {
+    <button class="secondary retry" (click)="retry()" [disabled]="busy()">Spróbuj odświeżyć ponownie</button>
+    }
+  </section>
+  } @else if (view() === 'create') {
   <h1>Nowe spotkanie</h1>
   <section class="card meeting-form">
     <form (ngSubmit)="createMeeting()">

@@ -33,7 +33,7 @@ Aplikacja wymaga połączenia z Supabase. Przed uruchomieniem uzupełnij lokalny
 - Zapis, zmiana i anulowanie własnego zamówienia.
 - Zamknięcie zamówień 4 godziny po rozpoczęciu spotkania.
 - Panel admina: liczba odpowiedzi oraz liczba wyborów każdej pozycji z formularza.
-- Oddzielne widoki admina: Spotkania i Nowe spotkanie, bez archiwum.
+- Oddzielne widoki admina: Spotkania, Nowe spotkanie i Użytkownicy.
 - Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
 
@@ -208,6 +208,18 @@ i w tych samych podsumowaniach wyborów. Nie ma dodatkowej obsługi slotów prze
 RPC gości: `coffee_guest_menu`, `coffee_guest_state`, `coffee_guest_save_order`,
 `coffee_guest_delete_order`, `coffee_guest_logout`. Dostęp do tabel i pomocniczych
 funkcji schematu `coffee_private` jest zablokowany dla publicznych ról.
+
+### Nadawanie uprawnień admina
+
+Przed publikacją frontendu uruchom w SQL Editor Supabase lokalną migrację
+`supabase/migrations/20261114_grant_admin.sql`. Dodaje funkcję `coffee_grant_admin`,
+bez zmiany tabel ani danych podczas instalacji. Można ją uruchomić ponownie.
+Skrypt pozostaje poza Gitem i nie jest wykonywany przez GitHub Actions.
+
+W panelu admina wybierz **Użytkownicy**, wskaż istniejące konto i potwierdź nadanie
+uprawnień. Funkcja sprawdza w bazie, czy bieżąca sesja należy do admina. Używa
+istniejącego pola `is_admin` i kończy dotychczasowe sesje tylko awansowanej osoby,
+która musi zalogować się ponownie. Konta i zamówienia pozostają zachowane.
 
 ### Tabele i API
 

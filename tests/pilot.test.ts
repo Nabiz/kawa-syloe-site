@@ -8,6 +8,54 @@ import { MEETING_DURATION_MS, meetingStatus, upcomingMeetings } from "../src/app
 import type { Meeting, State } from "../src/app/models";
 import { COFFEE_TYPES } from "./fixtures";
 
+test("admin promotion UI: confirmation, only eligible users, and safe retry after a refresh failure", async () => {
+  const admin = { id: "admin", firstName: "Jan", lastName: "Test", isAdmin: true };
+  const target = { id: "member", firstName: "Ala", lastName: "Test", isAdmin: false };
+  const state: State = { user: admin, users: [admin, target], orders: [], meetings: [], coffeeTypes: COFFEE_TYPES };
+  const grants: string[] = [];
+  let failRead = true;
+  const injector = Injector.create({ providers: [{ provide: CoffeeService, useValue: {
+    init: async () => structuredClone(state),
+    state: async () => {
+      if (failRead) throw new Error("Brak połączenia");
+      return structuredClone(state);
+    },
+    grantAdmin: async (id: string) => { grants.push(id); target.isAdmin = true; },
+  } }] });
+  const app = runInInjectionContext(injector, () => new App());
+  try {
+    await app.ngOnInit();
+    app.data.set({ ...state, user: target });
+    app.changeView("users");
+    assert.equal(app.view(), "order");
+    assert.deepEqual(app.promotableUsers(), []);
+    app.data.set(structuredClone(state));
+    app.changeView("users");
+    assert.deepEqual(app.promotableUsers(), [target]);
+    app.selectUser(admin.id);
+    await app.grantAdmin();
+    assert.equal(app.confirmingAdmin(), false);
+    app.selectUser(target.id);
+    await app.grantAdmin();
+    assert.equal(app.confirmingAdmin(), true);
+    assert.deepEqual(grants, []);
+    app.selectUser(target.id); // Cancel confirmation, keep the selection.
+    assert.equal(app.confirmingAdmin(), false);
+    await app.grantAdmin();
+    await app.grantAdmin();
+    assert.deepEqual(grants, [target.id]);
+    assert.deepEqual(app.promotableUsers(), []);
+    assert.match(app.error(), /Zmiana została zapisana/);
+    failRead = false;
+    await app.retry();
+    assert.deepEqual(grants, [target.id]);
+    assert.deepEqual(app.promotableUsers(), []);
+  } finally {
+    app.ngOnDestroy();
+    injector.destroy();
+  }
+});
+
 test("meetings: only two nearest future dates, past dates excluded, boundary and no mutation", () => {
   const now = Date.parse("2026-11-01T08:00:00Z");
   const events: Meeting[] = Array.from({ length: 100 }, (_, index) => ({

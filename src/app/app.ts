@@ -12,7 +12,9 @@ import type { Meeting, State } from "./models";
 import { meetingStatus, upcomingMeetings } from "./meetings";
 import { warsawDateTimeToIso } from "./time";
 
-type View = "order" | "meetings" | "create";
+const THEME_STORAGE_KEY = "kawa-syloe.theme";
+
+type View = "order" | "meetings" | "create" | "users";
 type Action =
   | "init"
   | "login"
@@ -22,6 +24,7 @@ type Action =
   | "save"
   | "cancel"
   | "create"
+  | "grantAdmin"
   | "refresh"
   | "logout";
 
@@ -33,6 +36,7 @@ type Action =
 })
 export class App implements OnInit, OnDestroy {
   readonly api = inject(CoffeeService);
+  readonly coffeeTheme = signal(false);
   readonly data = signal<State | null>(null);
   readonly now = signal(Date.now());
   readonly loading = signal(true);
@@ -46,6 +50,15 @@ export class App implements OnInit, OnDestroy {
   readonly authView = signal<"login" | "invitation" | "register" | "guest">("login");
   readonly meetingId = signal("");
   readonly selectedCoffee = signal("");
+  readonly selectedUserId = signal("");
+  readonly confirmingAdmin = signal(false);
+  readonly promotableUsers = computed(() => {
+    const state = this.data();
+    return state?.user.isAdmin ? state.users.filter((user) => !user.isAdmin) : [];
+  });
+  readonly selectedUser = computed(() =>
+    this.promotableUsers().find((user) => user.id === this.selectedUserId()),
+  );
   readonly visibleMeetings = computed(() => {
     const state = this.data();
     return state?.user.isGuest
@@ -120,8 +133,30 @@ export class App implements OnInit, OnDestroy {
   meetingDate = "";
 
   async ngOnInit(): Promise<void> {
+    try {
+      this.applyTheme(localStorage.getItem(THEME_STORAGE_KEY) === "coffee");
+    } catch {
+      // Keep the default theme if the browser blocks storage.
+    }
     this.clockTimer ??= setInterval(() => this.updateClock(), 30_000);
     await this.load();
+  }
+  toggleTheme(): void {
+    const coffee = !this.coffeeTheme();
+    this.applyTheme(coffee);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, coffee ? "coffee" : "green");
+    } catch {
+      // The switch still works for this visit.
+    }
+  }
+  private applyTheme(coffee: boolean): void {
+    this.coffeeTheme.set(coffee);
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.theme = coffee ? "coffee" : "green";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute(
+      "content", coffee ? "#603c29" : "#28473a",
+    );
   }
   ngOnDestroy(): void {
     clearInterval(this.clockTimer);
@@ -144,7 +179,7 @@ export class App implements OnInit, OnDestroy {
       return;
     }
     const id = this.meeting()?.id ?? "";
-    if (this.view() !== "create" && id !== this.meetingId())
+    if ((this.view() === "order" || this.view() === "meetings") && id !== this.meetingId())
       this.selectMeeting(id);
   }
   private setState(state: State): void {
@@ -166,9 +201,34 @@ export class App implements OnInit, OnDestroy {
     this.selectedCoffee.set(this.savedCoffee() ?? "");
   }
   changeView(view: View): void {
-    if (this.busy()) return;
+    if (this.busy() || (view !== "order" && !this.data()?.user.isAdmin)) return;
+    this.selectUser("");
     this.view.set(view);
     this.selectMeeting(this.meeting()?.id ?? "");
+  }
+  selectUser(id: string): void {
+    this.selectedUserId.set(id);
+    this.confirmingAdmin.set(false);
+    this.clearFeedback();
+  }
+  async grantAdmin(): Promise<void> {
+    const user = this.selectedUser();
+    if (!user || this.busy() || this.view() !== "users") return;
+    if (!this.confirmingAdmin()) {
+      this.clearFeedback();
+      this.confirmingAdmin.set(true);
+      return;
+    }
+    await this.run("grantAdmin", async () => {
+      await this.api.grantAdmin(user.id);
+      this.data.update((state) => state && ({
+        ...state,
+        users: state.users.map((item) => item.id === user.id ? { ...item, isAdmin: true } : item),
+      }));
+      this.selectUser("");
+      this.notify(`Nadano uprawnienia administratora: ${user.firstName} ${user.lastName}.`);
+      await this.refreshAfterWrite();
+    });
   }
   selectMeeting(id: string): void {
     if (id && !this.visibleMeetings().some((meeting) => meeting.id === id)) return;
@@ -311,6 +371,7 @@ export class App implements OnInit, OnDestroy {
       this.guestName = "";
       this.clearRegistration();
       this.meetingId.set("");
+      this.selectUser("");
       this.view.set("order");
     });
   }
@@ -431,6 +492,9 @@ export class App implements OnInit, OnDestroy {
       this.data.set(null);
       this.authView.set("login");
       this.confirmedWrites.set({});
+      this.selectedUserId.set("");
+      this.confirmingAdmin.set(false);
+      this.view.set("order");
       this.retryAvailable.set(false);
       this.retryAction = undefined;
     }

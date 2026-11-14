@@ -207,6 +207,13 @@ export class CoffeeService {
     });
   }
 
+  async grantAdmin(userId: string): Promise<void> {
+    await this.rpc("coffee_grant_admin", {
+      p_token: this.token,
+      p_user_id: userId,
+    });
+  }
+
   async resetPassword(userId: string, password: string): Promise<void> {
     await this.rpc("coffee_reset_password", {
       p_token: this.token,
@@ -272,6 +279,8 @@ export class CoffeeService {
     if (!response.ok || data?.error) {
       const message =
         data?.error ?? data?.message ?? "Nie udało się wykonać operacji.";
+      if (data?.code === "PGRST202" && name === "coffee_grant_admin")
+        throw new Error("Uruchom migrację 20261114_grant_admin.sql w SQL Editor Supabase.");
       if (data?.code === "PGRST202")
         throw new Error(
           name.startsWith("coffee_guest_")

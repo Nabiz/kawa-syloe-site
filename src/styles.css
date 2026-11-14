@@ -1,11 +1,36 @@
 :root {
   font-family: "Segoe UI", Arial, sans-serif;
-  color: #243b30;
-  background: #f7f7f2;
+  color: var(--ink);
+  background: var(--page);
   font-synthesis: none;
-  --green: #28473a;
+  --ink: #243b30;
+  --page: #f7f7f2;
+  --surface: #fff;
+  --accent: #28473a;
+  --accent-hover: #3b5a47;
+  --selected: #edf3e7;
+  --success-text: #255537;
+  --success-bg: #eef5ea;
+  --success-toast: #254c36;
   --line: #d8ddd5;
   --muted: #59665d;
+  --input-line: #aeb9ad;
+  --button-line: #b5c0b3;
+}
+:root[data-theme="coffee"] {
+  --ink: #392820;
+  --page: #f4eadd;
+  --surface: #fffaf3;
+  --accent: #603c29;
+  --accent-hover: #754d35;
+  --selected: #f0ddc5;
+  --success-text: #603c29;
+  --success-bg: #f0ddc5;
+  --success-toast: #603c29;
+  --line: #d9c6b2;
+  --muted: #675447;
+  --input-line: #a08a75;
+  --button-line: #a99480;
 }
 * {
   box-sizing: border-box;
@@ -14,7 +39,8 @@ body {
   margin: 0;
 }
 button,
-input {
+input,
+select {
   font: inherit;
 }
 button,
@@ -31,7 +57,8 @@ button:disabled {
 }
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid #a5712b;
   outline-offset: 3px;
 }
@@ -55,6 +82,28 @@ a {
   text-decoration: none;
   font-weight: 700;
   white-space: nowrap;
+}
+.brand-icon {
+  color: var(--accent);
+  flex: none;
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+.theme-toggle[aria-pressed="true"] {
+  background: var(--selected);
+  border-color: var(--accent);
+}
+.theme-swatch {
+  width: 15px;
+  height: 15px;
+  border: 1px solid #603c29;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #603c29 50%, #f0ddc5 50%);
 }
 .account {
   display: flex;
@@ -80,7 +129,7 @@ p {
   line-height: 1.45;
 }
 .card {
-  background: white;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 20px;
@@ -109,15 +158,16 @@ label {
   font-size: 15px;
   font-weight: 600;
 }
-input:not([type="checkbox"]):not([type="radio"]) {
+input:not([type="checkbox"]):not([type="radio"]),
+select {
   width: 100%;
   min-width: 0;
   min-height: 46px;
   padding: 10px 12px;
-  border: 1px solid #aeb9ad;
+  border: 1px solid var(--input-line);
   border-radius: 6px;
   color: inherit;
-  background: white;
+  background: var(--surface);
 }
 input[type="checkbox"],
 input[type="radio"] {
@@ -125,7 +175,7 @@ input[type="radio"] {
   height: 22px;
   margin: 0;
   flex: 0 0 22px;
-  accent-color: var(--green);
+  accent-color: var(--accent);
 }
 .two-fields {
   display: grid;
@@ -141,22 +191,22 @@ input[type="radio"] {
   font-weight: 600;
 }
 .primary {
-  border: 1px solid var(--green);
+  border: 1px solid var(--accent);
   color: white;
-  background: var(--green);
+  background: var(--accent);
 }
 .primary:hover:not(:disabled) {
-  background: #3b5a47;
+  background: var(--accent-hover);
 }
 .secondary {
-  border: 1px solid #b5c0b3;
-  color: var(--green);
-  background: white;
+  border: 1px solid var(--button-line);
+  color: var(--accent);
+  background: var(--surface);
 }
 .text-button {
   border: 0;
   background: transparent;
-  color: var(--green);
+  color: var(--accent);
   text-decoration: underline;
   padding: 8px;
 }
@@ -179,8 +229,8 @@ small {
   overflow-wrap: anywhere;
 }
 .inline-success {
-  color: #255537;
-  background: #eef5ea;
+  color: var(--success-text);
+  background: var(--success-bg);
   padding: 12px;
   border-radius: 6px;
 }
@@ -194,7 +244,7 @@ small {
   left: 50%;
   transform: translateX(-50%);
   width: min(560px, calc(100% - 24px));
-  background: #254c36;
+  background: var(--success-toast);
   color: white;
   border-radius: 8px;
   padding: 12px 14px;
@@ -232,13 +282,13 @@ small {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 10px 14px;
-  background: white;
-  color: var(--green);
+  background: var(--surface);
+  color: var(--accent);
 }
 .tabs button.active {
-  background: var(--green);
+  background: var(--accent);
   color: white;
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 .page-heading {
   display: flex;
@@ -265,11 +315,11 @@ small {
   border: 2px solid var(--line);
   border-radius: 8px;
   color: inherit;
-  background: white;
+  background: var(--surface);
 }
 .meeting-choice.selected {
-  border-color: var(--green);
-  background: #edf3e7;
+  border-color: var(--accent);
+  background: var(--selected);
 }
 time {
   display: flex;
@@ -282,7 +332,7 @@ time {
 }
 time strong {
   font-size: 23px;
-  color: var(--green);
+  color: var(--accent);
 }
 .meeting-choice > span,
 .single-meeting > span {
@@ -294,7 +344,7 @@ time strong {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 22px;
-  border-left: 4px solid var(--green);
+  border-left: 4px solid var(--accent);
 }
 .meeting-subtitle {
   margin: 0;
@@ -325,12 +375,12 @@ time strong {
   min-height: 82px;
   border: 2px solid var(--line);
   border-radius: 8px;
-  background: white;
+  background: var(--surface);
   cursor: pointer;
 }
 .coffee-card.selected {
-  border-color: var(--green);
-  background: #edf3e7;
+  border-color: var(--accent);
+  background: var(--selected);
 }
 .coffee-card span {
   min-width: 0;
@@ -351,7 +401,7 @@ time strong {
 .saved-choice {
   font-size: 17px;
   font-weight: 650;
-  color: #255537;
+  color: var(--success-text);
 }
 .pending-choice {
   color: #72500e;
@@ -366,6 +416,12 @@ time strong {
 }
 .meeting-form {
   max-width: 600px;
+}
+.grant-confirmation {
+  margin: 0;
+}
+.grant-feedback {
+  margin-top: 16px;
 }
 .offer-options {
   border: 1px solid var(--line);
@@ -436,8 +492,12 @@ th {
     flex-wrap: wrap;
   }
   .account {
-    margin-left: auto;
+    flex: 1 0 100%;
+    justify-content: flex-end;
     gap: 6px;
+  }
+  .theme-toggle {
+    padding-inline: 10px;
   }
   main {
     padding: 16px 16px 32px;
