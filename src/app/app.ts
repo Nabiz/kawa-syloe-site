@@ -14,7 +14,7 @@ import { warsawDateTimeToIso } from "./time";
 
 const THEME_STORAGE_KEY = "kawa-syloe.theme";
 
-type View = "order" | "meetings" | "create" | "users";
+type View = "order" | "meetings" | "create" | "users" | "passwords";
 type Action =
   | "init"
   | "login"
@@ -25,6 +25,7 @@ type Action =
   | "cancel"
   | "create"
   | "grantAdmin"
+  | "resetPassword"
   | "refresh"
   | "logout";
 
@@ -51,6 +52,16 @@ export class App implements OnInit, OnDestroy {
   readonly meetingId = signal("");
   readonly selectedCoffee = signal("");
   readonly selectedUserId = signal("");
+  readonly passwordUserId = signal("");
+  readonly passwordUsers = computed(() => {
+    const state = this.data();
+    return state?.user.isAdmin ? state.users.filter((user) => user.id !== state.user.id) : [];
+  });
+  readonly passwordUser = computed(() =>
+    this.passwordUsers().find((user) => user.id === this.passwordUserId()),
+  );
+  newPassword = "";
+  newPasswordConfirmation = "";
   readonly confirmingAdmin = signal(false);
   readonly promotableUsers = computed(() => {
     const state = this.data();
@@ -203,6 +214,7 @@ export class App implements OnInit, OnDestroy {
   changeView(view: View): void {
     if (this.busy() || (view !== "order" && !this.data()?.user.isAdmin)) return;
     this.selectUser("");
+    this.selectPasswordUser("");
     this.view.set(view);
     this.selectMeeting(this.meeting()?.id ?? "");
   }
@@ -210,6 +222,28 @@ export class App implements OnInit, OnDestroy {
     this.selectedUserId.set(id);
     this.confirmingAdmin.set(false);
     this.clearFeedback();
+  }
+  selectPasswordUser(id: string): void {
+    this.passwordUserId.set(id);
+    this.newPassword = "";
+    this.newPasswordConfirmation = "";
+    this.clearFeedback();
+  }
+  async resetPassword(): Promise<void> {
+    const user = this.passwordUser();
+    if (!user || this.busy() || this.view() !== "passwords") return;
+    await this.run("resetPassword", async () => {
+      if (this.newPassword !== this.newPasswordConfirmation)
+        throw new Error("Podane hasła muszą być takie same.");
+      if (this.newPassword.length < 8 || new TextEncoder().encode(this.newPassword).length > 72)
+        throw new Error("Hasło musi mieć co najmniej 8 znaków i maksymalnie 72 bajty.");
+      const password = this.newPassword;
+      this.newPassword = "";
+      this.newPasswordConfirmation = "";
+      await this.api.resetPassword(user.id, password);
+      this.selectPasswordUser("");
+      this.notify(`Zmieniono hasło: ${user.firstName} ${user.lastName}. Użytkownik musi zalogować się ponownie.`);
+    });
   }
   async grantAdmin(): Promise<void> {
     const user = this.selectedUser();
@@ -372,6 +406,7 @@ export class App implements OnInit, OnDestroy {
       this.clearRegistration();
       this.meetingId.set("");
       this.selectUser("");
+      this.selectPasswordUser("");
       this.view.set("order");
     });
   }
@@ -493,6 +528,9 @@ export class App implements OnInit, OnDestroy {
       this.authView.set("login");
       this.confirmedWrites.set({});
       this.selectedUserId.set("");
+      this.passwordUserId.set("");
+      this.newPassword = "";
+      this.newPasswordConfirmation = "";
       this.confirmingAdmin.set(false);
       this.view.set("order");
       this.retryAvailable.set(false);

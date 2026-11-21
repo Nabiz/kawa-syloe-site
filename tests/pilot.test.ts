@@ -8,6 +8,68 @@ import { MEETING_DURATION_MS, meetingStatus, upcomingMeetings } from "../src/app
 import type { Meeting, State } from "../src/app/models";
 import { COFFEE_TYPES } from "./fixtures";
 
+test("password reset UI: admin only, validates confirmation, clears secrets and preserves account/orders", async () => {
+  const admin = { id: "admin", firstName: "Jan", lastName: "Test", isAdmin: true };
+  const target = { id: "member", firstName: "Ala", lastName: "Test", isAdmin: false };
+  const state: State = {
+    user: admin, users: [admin, target], meetings: [], coffeeTypes: COFFEE_TYPES,
+    orders: [{ id: "order", meetingId: "meeting", userId: target.id, coffeeType: "Czarna" }],
+  };
+  const calls: string[] = [];
+  let fail = false;
+  const injector = Injector.create({ providers: [{ provide: CoffeeService, useValue: {
+    init: async () => structuredClone(state),
+    resetPassword: async (id: string, password: string) => {
+      calls.push(id);
+      assert.equal(password, "NewTest123!");
+      if (fail) throw new Error("Nie otrzymaliśmy potwierdzenia operacji.");
+    },
+  } }] });
+  const app = runInInjectionContext(injector, () => new App());
+  try {
+    await app.ngOnInit();
+    app.data.set({ ...state, user: target });
+    app.changeView("passwords");
+    assert.equal(app.view(), "order");
+    assert.deepEqual(app.passwordUsers(), []);
+    app.data.set(structuredClone(state));
+    app.changeView("passwords");
+    assert.deepEqual(app.passwordUsers(), [target]);
+    app.selectPasswordUser(admin.id);
+    assert.equal(app.passwordUser(), undefined);
+    app.selectPasswordUser(target.id);
+    app.newPassword = "NewTest123!";
+    app.newPasswordConfirmation = "Different123!";
+    await app.resetPassword();
+    assert.deepEqual(calls, []);
+    assert.match(app.error(), /takie same/);
+    app.newPassword = app.newPasswordConfirmation = "ą".repeat(37);
+    await app.resetPassword();
+    assert.deepEqual(calls, []);
+    assert.match(app.error(), /72 bajty/);
+    app.newPassword = app.newPasswordConfirmation = "NewTest123!";
+    await app.resetPassword();
+    assert.deepEqual(calls, [target.id]);
+    assert.equal(app.newPassword, "");
+    assert.equal(app.newPasswordConfirmation, "");
+    assert.equal(app.passwordUserId(), "");
+    assert.match(app.notice(), /Zmieniono hasło: Ala Test/);
+    assert.ok(!app.notice().includes("NewTest123!"));
+    assert.deepEqual(app.data(), state);
+    app.selectPasswordUser(target.id);
+    app.newPassword = app.newPasswordConfirmation = "NewTest123!";
+    fail = true;
+    await app.resetPassword();
+    assert.equal(app.newPassword, "");
+    assert.equal(app.newPasswordConfirmation, "");
+    assert.equal(app.retryAvailable(), false);
+    app.newPassword = "UnsentPassword";
+    app.changeView("order");
+    assert.equal(app.newPassword, "");
+    assert.equal(app.passwordUserId(), "");
+  } finally { app.ngOnDestroy(); injector.destroy(); }
+});
+
 test("admin promotion UI: confirmation, only eligible users, and safe retry after a refresh failure", async () => {
   const admin = { id: "admin", firstName: "Jan", lastName: "Test", isAdmin: true };
   const target = { id: "member", firstName: "Ala", lastName: "Test", isAdmin: false };

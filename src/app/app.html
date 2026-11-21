@@ -225,8 +225,49 @@
     >
       Użytkownicy
     </button>
+    <button
+      (click)="changeView('passwords')"
+      [class.active]="view() === 'passwords'"
+      [attr.aria-current]="view() === 'passwords' ? 'page' : null"
+      [disabled]="busy()"
+    >Reset hasła</button>
   </nav>
-  } @if (state.user.isAdmin && view() === 'users') {
+  } @if (state.user.isAdmin && view() === 'passwords') {
+  <div class="page-heading">
+    <h1>Reset hasła</h1>
+    <button class="secondary" (click)="refresh()" [disabled]="busy()">Odśwież</button>
+  </div>
+  <section class="card meeting-form">
+    @if (passwordUsers().length) {
+    <form (ngSubmit)="resetPassword()">
+      <label>Wybierz użytkownika
+        <select name="passwordUserId" [ngModel]="passwordUserId()" (ngModelChange)="selectPasswordUser($event)" required [disabled]="busy()">
+          <option value="">Wybierz z listy</option>
+          @for (user of passwordUsers(); track user.id) {
+          <option [value]="user.id">{{ user.firstName }} {{ user.lastName }}</option>
+          }
+        </select>
+      </label>
+      <label>Nowe hasło
+        <input type="password" name="newPassword" [(ngModel)]="newPassword" autocomplete="new-password"
+          required minlength="8" maxlength="72" [disabled]="busy() || !passwordUser()" />
+      </label>
+      <label>Powtórz nowe hasło
+        <input type="password" name="newPasswordConfirmation" [(ngModel)]="newPasswordConfirmation" autocomplete="new-password"
+          required minlength="8" maxlength="72" [disabled]="busy() || !passwordUser()" />
+      </label>
+      <small>Co najmniej 8 znaków. Po zmianie użytkownik musi zalogować się ponownie.</small>
+      <button class="primary" type="submit" [disabled]="busy() || !passwordUser() || !newPassword || !newPasswordConfirmation">
+        {{ busy() && action() === 'resetPassword' ? 'Zmienianie…' : 'Ustaw nowe hasło' }}
+      </button>
+    </form>
+    } @else { <p class="grant-confirmation">Brak innych użytkowników.</p> }
+    @if (error()) { <p class="inline-error grant-feedback">{{ error() }}</p> }
+    @if (retryAvailable()) {
+    <button class="secondary retry" (click)="retry()" [disabled]="busy()">Spróbuj odświeżyć ponownie</button>
+    }
+  </section>
+  } @else if (state.user.isAdmin && view() === 'users') {
   <div class="page-heading">
     <h1>Użytkownicy</h1>
     <button class="secondary" (click)="refresh()" [disabled]="busy()">Odśwież</button>

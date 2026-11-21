@@ -34,7 +34,7 @@ Aplikacja wymaga połączenia z Supabase. Przed uruchomieniem uzupełnij lokalny
 - Zamknięcie zamówień 4 godziny po rozpoczęciu spotkania.
 - Panel admina: liczba odpowiedzi oraz liczba wyborów każdej pozycji z formularza.
 - Oddzielne widoki admina: Spotkania, Nowe spotkanie i Użytkownicy.
-- Konta tworzą sami uczestnicy; reset hasła wykonuje właściciel w SQL Editor.
+- Konta tworzą sami uczestnicy; admin ustawia nowe hasło w zakładce „Reset hasła”.
 - Po resecie hasła wcześniejsze sesje tej osoby przestają działać.
 
 ## Podłączenie Supabase
@@ -168,7 +168,7 @@ błędu przy formularzu. Po błędzie zapisu wybór zostaje na ekranie. Jeżeli 
 się powiedzie, a odczyt zawiedzie, potwierdzenie zostaje zachowane, a ponowienie
 odświeża tylko dane. Tworzenie kont i spotkań nie jest automatycznie ponawiane.
 
-Formularze dodawania użytkownika i resetu hasła usunięto z panelu admina.
+Konta tworzą sami uczestnicy. Formularz resetu hasła jest dostępny w zakładce „Reset hasła”.
 Dotychczasowe funkcje w bazie zachowały kontrolę uprawnień. Framework, system
 logowania i hosting pozostały bez zmian.
 
@@ -208,6 +208,15 @@ i w tych samych podsumowaniach wyborów. Nie ma dodatkowej obsługi slotów prze
 RPC gości: `coffee_guest_menu`, `coffee_guest_state`, `coffee_guest_save_order`,
 `coffee_guest_delete_order`, `coffee_guest_logout`. Dostęp do tabel i pomocniczych
 funkcji schematu `coffee_private` jest zablokowany dla publicznych ról.
+
+### Reset hasła
+
+Admin może ustawić nowe hasło innemu użytkownikowi w zakładce **Reset hasła**.
+Wybiera istniejące konto i wpisuje dwukrotnie nowe hasło (minimum 8 znaków,
+maksymalnie 72 bajty UTF-8). Wykorzystuje to istniejącą funkcję `coffee_reset_password`,
+bez nowej migracji. Konto i zamówienia pozostają zachowane, poprzednie sesje tej
+osoby oraz blokada nieudanych logowań są usuwane. Nowe hasło nie jest zapisywane
+w localStorage. Własnego konta admina nie ma na liście resetowania haseł.
 
 ### Nadawanie uprawnień admina
 
