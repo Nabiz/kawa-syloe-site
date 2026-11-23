@@ -5,7 +5,7 @@
   "scripts": {
     "start": "ng serve --host 127.0.0.1",
     "build": "ng build",
-    "build:pages": "ng build --base-href ./",
+    "build:pages": "ng build --base-href /",
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {

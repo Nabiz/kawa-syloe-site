@@ -6,4 +6,8 @@ out-tsc/
 .env*
 artifacts/
 public/config.json
-supabase/
+supabase/*
+!supabase/schema.sql
+!supabase/migrations/
+supabase/migrations/*
+!supabase/migrations/*.sql

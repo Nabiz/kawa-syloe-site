@@ -8,19 +8,21 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 test(
   "PostgreSQL: RPC login, table isolation, ownership, reset and deadlines",
   {
-    skip: ["supabase/schema.sql", "supabase/create-admin.sql"].every(existsSync)
+    skip: existsSync("supabase/schema.sql")
       ? false
-      : "Skrypty SQL są lokalne i wykluczone z repozytorium.",
+      : "Brak wymaganego pliku supabase/schema.sql.",
   },
   async () => {
     const db = new PGlite({ extensions: { pgcrypto } });
     try {
       await db.exec("create role anon; create role authenticated;");
       await db.exec(await readFile("supabase/schema.sql", "utf8"));
-      await assert.rejects(
-        db.exec(await readFile("supabase/create-admin.sql", "utf8")),
-        /Najpierw wpisz/,
-      );
+      if (existsSync("supabase/create-admin.sql")) {
+        await assert.rejects(
+          db.exec(await readFile("supabase/create-admin.sql", "utf8")),
+          /Najpierw wpisz/,
+        );
+      }
       await db.exec(`insert into public.coffee_users(first_name,last_name,password_hash,is_admin) values
       ('Jan','Kowalski',extensions.crypt('Kawa123!',extensions.gen_salt('bf', 4)),true),
       ('Anna','Nowak',extensions.crypt('Kawa123!',extensions.gen_salt('bf', 4)),false);`);

@@ -4,9 +4,12 @@ Statyczny frontend w Angularze. Działa na komputerze i telefonie, a po podłąc
 projektu Supabase komunikuje się bezpośrednio z jego API. Nie ma osobnej aplikacji
 backendowej, .NET ani własnego serwera.
 
-Repozytorium służy do publikowania frontendu na GitHub Pages. Katalog `supabase/`
-ze skryptami SQL oraz `public/config.json` są lokalne i wykluczone z Gita.
-Opisane poniżej pliki SQL nie są pobierane podczas klonowania repozytorium.
+Repozytorium służy do publikowania frontendu na GitHub Pages. Schemat bazy
+`supabase/schema.sql` i pliki `supabase/migrations/*.sql` są wersjonowane w Gicie.
+Zawierają strukturę i logikę bazy, bez danych użytkowników i sekretów.
+Lokalne `public/config.json`, `supabase/create-admin.sql` oraz pozostała zawartość
+`supabase/` (np. kopie bazy) pozostają ignorowane. Nie wpisuj haseł, kluczy ani
+rzeczywistych danych użytkowników do wersjonowanych skryptów SQL.
 
 ## Uruchomienie
 
@@ -42,9 +45,11 @@ Aplikacja wymaga połączenia z Supabase. Przed uruchomieniem uzupełnij lokalny
 1. Utwórz nowy projekt w Supabase. Wybierz region odpowiedni dla użytkowników.
 2. W **SQL Editor** uruchom zawartość `supabase/schema.sql`. Skrypt jest przeznaczony
    do jednorazowego uruchomienia w nowym projekcie; wykonuje się w transakcji.
-3. W edytorze Supabase wklej `supabase/create-admin.sql`, zastąp trzy wartości
+3. Jeśli masz lokalny `supabase/create-admin.sql`, wklej go w edytorze Supabase i zastąp trzy wartości
    zastępcze własnym imieniem, nazwiskiem i hasłem, a następnie uruchom skrypt.
-   Nie zapisuj zmienionego skryptu z prawdziwym hasłem w repozytorium.
+   Skrypt tworzenia pierwszego admina nie jest publikowany w repozytorium;
+   na nowym projekcie przygotuj go osobno w SQL Editor. Nie zapisuj prawdziwego
+   hasła w wersjonowanych plikach.
 4. Odszukaj **Project URL** i **Publishable key** w ustawieniach projektu.
    Starszy publiczny klucz **anon** też jest obsługiwany.
 5. Skopiuj `public/config.example.json` do `public/config.json` i uzupełnij wartości:
@@ -107,7 +112,7 @@ Dokumentacja Vault: https://supabase.com/docs/guides/database/vault.
 
 ### Katalog napojów i menu spotkania — aktualizacja bazy
 
-W SQL Editor Supabase uruchom lokalny plik
+W SQL Editor Supabase uruchom plik
 **`supabase/migrations/20261021_coffee_types.sql`**, przed opublikowaniem nowego
 frontendu. Na nowej bazie najpierw uruchom `schema.sql`; migracja rejestracji jest
 niezależna i również pozostaje potrzebna do rejestracji użytkowników.
@@ -134,15 +139,15 @@ wcześniej na nich zamówione. Ponowne uruchomienie migracji nie rozszerza menu 
 spotkań. Katalog i powiązania są udostępniane przez `coffee_state`, bez nowych
 requestów do API przy wyświetlaniu menu.
 
-Katalog `supabase/` nadal jest ignorowany przez Git — migrację zachowaj lokalnie
-i wykonaj w SQL Editor, nie jest automatycznie wdrażana przez GitHub Actions.
+Migracje są wersjonowane w Gicie. Wykonaj je w SQL Editor — GitHub Actions
+publikuje tylko frontend i nie aktualizuje automatycznie produkcyjnej bazy.
 
 ### Uproszczony interfejs i długie sesje — aktualizacja przed pilotażem
 
-W SQL Editor uruchom lokalny plik **`supabase/migrations/20261022_long_sessions.sql`**.
+W SQL Editor uruchom plik **`supabase/migrations/20261022_long_sessions.sql`**.
 Wymaga istniejącego `schema.sql`; nie uruchamiaj ponownie skryptu bazowego.
 Migracje katalogu napojów i rejestracji pozostają potrzebne do tych funkcji.
-Katalog `supabase/` nadal jest poza Gitem.
+Schemat i migracje są wersjonowane, konfiguracja i dane produkcyjne pozostają poza Gitem.
 
 Sesja uczestnika jest ważna **180 dni od zalogowania**, admina **7 dni**.
 Nie jest automatycznie odnawiana przy odczytywaniu danych. Migracja jednorazowo
@@ -174,11 +179,11 @@ logowania i hosting pozostały bez zmian.
 
 ### Zamówienia gości i czterogodzinne spotkania — aktualizacja bazy
 
-Przed publikacją frontendu uruchom w SQL Editor Supabase lokalny plik
+Przed publikacją frontendu uruchom w SQL Editor Supabase plik
 **`supabase/migrations/20261102_guests.sql`**. Wymaga `schema.sql` i migracji
 `20261021_coffee_types.sql`. Na istniejącej bazie nie uruchamiaj ponownie `schema.sql`.
 Migracja zachowuje wcześniejsze konta, sesje, spotkania i zamówienia. Można ją powtórzyć.
-Skrypt pozostaje poza Gitem; GitHub Actions nie wykonuje go automatycznie.
+Skrypt jest wersjonowany; GitHub Actions nie wykonuje go na produkcyjnej bazie.
 
 Na ekranie logowania „Zamów jako gość” otwiera pytanie „Jak mamy Cię zawołać?”.
 Po wpisaniu imienia gość widzi tylko najbliższe niezakończone spotkanie, i tylko
@@ -220,10 +225,10 @@ w localStorage. Własnego konta admina nie ma na liście resetowania haseł.
 
 ### Nadawanie uprawnień admina
 
-Przed publikacją frontendu uruchom w SQL Editor Supabase lokalną migrację
+Przed publikacją frontendu uruchom w SQL Editor Supabase migrację
 `supabase/migrations/20261114_grant_admin.sql`. Dodaje funkcję `coffee_grant_admin`,
 bez zmiany tabel ani danych podczas instalacji. Można ją uruchomić ponownie.
-Skrypt pozostaje poza Gitem i nie jest wykonywany przez GitHub Actions.
+Skrypt jest wersjonowany i nie jest automatycznie wykonywany na produkcyjnej bazie.
 
 W panelu admina wybierz **Użytkownicy**, wskaż istniejące konto i potwierdź nadanie
 uprawnień. Funkcja sprawdza w bazie, czy bieżąca sesja należy do admina. Używa
@@ -269,8 +274,9 @@ npm run build:pages
 ```
 
 Gotowa strona znajduje się w `dist/kawa-syloe/browser`. Można opublikować ten folder
-na GitHub Pages. `--base-href ./` pozwala działać także pod adresem repozytorium,
-np. `https://uzytkownik.github.io/kawa-syloe-site/`.
+na GitHub Pages pod adresem **https://kawacss.pl/**. `angular.json` oraz skrypt
+`build:pages` ustawiają bazową ścieżkę `/`, zgodną z `<base href="/">` w `src/index.html`.
+Skrypty, style, ikona i `config.json` są pobierane z katalogu głównego domeny.
 
 Workflow `.github/workflows/pages.yml` publikuje stronę po każdym pushu do `main`.
 Można go też uruchomić ręcznie:
@@ -284,6 +290,17 @@ Workflow uruchamia testy, tworzy `public/config.json` z powyższych ustawień na
 budowania, buduje Angulara i publikuje wynik. Brak któregoś ustawienia zatrzymuje
 publikację z czytelnym błędem. Lokalny `public/config.json` pozostaje poza repozytorium.
 Aplikacja nie korzysta z tras URL, więc odświeżenie strony nie wymaga przekierowań SPA.
+Zakładki zmieniają widok komponentu, pozostawiając adres `/`. Nie istnieją osobne
+trasy takie jak `/spotkania`, dlatego nie dodajemy kopii `index.html` jako `404.html`.
+Jeśli w przyszłości pojawi się Angular Router, sposób publikacji tras trzeba dobrać
+do statycznego hostingu GitHub Pages.
+
+Domena jest już ustawiona w **Settings → Pages → Custom domain**. Workflow zachowuje
+to ustawienie. Przy publikacji przez własny workflow Actions plik `CNAME` nie jest
+wymagany: [dokumentacja GitHub Pages](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
+Konfiguracja DNS i poczty OVHcloud oraz ustawienia certyfikatu HTTPS nie są częścią buildu.
+Po przejściu na nową domenę potrzebne jest ponowne logowanie — localStorage sesji
+jest przypisany do domeny, na której użytkownik się zalogował.
 
 ## Sprawdzenie
 
@@ -297,9 +314,9 @@ oraz sprawdzają wybór spotkań, stan interfejsu, konfigurację API i przelicza
 działającego serwera. Test rejestracji wykonuje migrację SQL i sprawdza uprawnienia,
 unikalność, wymaganie wspólnego hasła i jego zmianę. Interfejs SQL Vault jest w nim
 odwzorowany lokalnie, bez rozszerzenia szyfrującego Supabase. Testy nie zastępują
-sprawdzenia integracji z API prawdziwego projektu. Gdy lokalnych plików `supabase/`
-nie ma (np. w GitHub Actions), testy SQL są jawnie pomijane; pozostałe testy nadal
-się wykonują. Publikowanie frontendu nie wymaga dostępu do skryptów ani danych bazy.
+sprawdzenia integracji z API prawdziwego projektu. Wersjonowane skrypty SQL pozwalają
+uruchamiać testy bazy również w GitHub Actions. Testy nie potrzebują lokalnego
+`supabase/create-admin.sql`, połączenia z produkcyjną bazą ani jej danych.
 
 ## Gdzie szukać kodu
 
